@@ -1,6 +1,20 @@
 # Quota Vera — l'app
 
-Pagina pubblicata su claude.ai: <https://claude.ai/artifact/2kcNkHW9LUndVGPjiPiPzz>
+Due modi per usarla.
+
+**Pubblicata su claude.ai**: <https://claude.ai/artifact/2kcNkHW9LUndVGPjiPiPzz> —
+si apre dal telefono, e le giocate restano salvate anche cambiando dispositivo.
+
+**File autonomo**: `app/quota-vera-standalone.html`, 72 KB, un file solo che si
+apre con qualunque browser e funziona senza rete. E' la stessa pagina piu' lo
+scheletro che la piattaforma degli artifact aggiunge da sola in fase di
+pubblicazione (doctype, charset, viewport): senza il charset gli accenti si
+rompono, senza il viewport il telefono rimpicciolisce tutto. Qui le giocate
+restano nel browser di quel dispositivo, perche' fuori da claude.ai l'archivio
+condiviso non c'e'; il codice se ne accorge da solo e ripiega sulla memoria
+locale.
+
+Per rigenerarlo dopo una modifica alla pagina, vedi la sezione in fondo.
 
 Si apre dal browser del telefono, non installa niente, ed e' privata finche' non
 viene condivisa.
@@ -77,3 +91,13 @@ prova, in circa 30 ms.
 Ripubblicare lo stesso file dalla conversazione che l'ha creata mantiene
 l'indirizzo. Da un'altra conversazione serve passare l'URL, altrimenti nasce una
 pagina separata.
+
+## Rigenerare il file autonomo
+
+`app/quota-vera.html` e' scritto per la piattaforma degli artifact e non porta
+doctype, `<head>` ne' `<body>`: li aggiunge il servizio al momento della
+pubblicazione. Il file autonomo li rende espliciti, spostando `<title>` e
+`<style>` nel head e il resto nel body.
+
+Dopo ogni modifica alla pagina va rigenerato, altrimenti il file scaricabile
+resta indietro rispetto a quello pubblicato.
