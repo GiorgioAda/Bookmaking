@@ -113,7 +113,11 @@ def main(giorni: int = 10) -> None:
                  "nota": v.get("note")}
              for k, v in bonus["bookmaker"].items()}
 
-    dati = {"generato": oggi.isoformat(timespec="minutes"), "rho": rho,
+    # Un numero di versione visibile in pagina: senza, distinguere una
+    # correzione non arrivata da una copia rimasta in cache e' impossibile.
+    versione = oggi.strftime("%Y%m%d-%H%M")
+    dati = {"generato": oggi.isoformat(timespec="minutes"), "versione": versione,
+            "rho": rho,
             "squadre": squadre, "divisioni": divisioni, "partite": partite,
             "calendari_disponibili": sorted(of.available()),
             "bookmaker": books, "forma": forma,
@@ -133,7 +137,8 @@ def main(giorni: int = 10) -> None:
             print(f"  {s}")
     else:
         print("tutte le squadre in calendario hanno un rating")
-    print(f"\nscritto {out} ({out.stat().st_size / 1024:.0f} KB)")
+    print(f"\nversione {versione}")
+    print(f"scritto {out} ({out.stat().st_size / 1024:.0f} KB)")
 
 
 if __name__ == "__main__":
