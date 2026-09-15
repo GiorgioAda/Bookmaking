@@ -1,0 +1,25 @@
+[project]
+name = "bookmaking"
+version = "0.1.0"
+description = "Motore di pronostici calcistici: modello statistico, quote eque, value betting e gestione bankroll"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "pandas>=2.1",
+]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.110", "uvicorn[standard]>=0.27", "httpx>=0.27", "sqlalchemy>=2.0"]
+dev = ["pytest>=7.4"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
