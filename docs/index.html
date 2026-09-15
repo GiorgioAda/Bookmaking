@@ -219,6 +219,7 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
 <!-- ===== PARTITE ===== -->
 <section id="p-partite" role="tabpanel" aria-labelledby="tab-partite">
   <div id="listaView">
+    <div id="ambienteBanner"></div>
     <p class="lede">Calendario delle prossime partite con il pronostico del modello,
     stimato su <b>104.556 partite dal 2000 a oggi</b>. Apri una partita e inserisci
     le quote dei bookmaker per trovare il prezzo migliore e il valore.</p>
@@ -977,8 +978,33 @@ var TORNEI_OP={
   FR2:{paese:"france",torneo:"ligue 2"},IT2:{paese:"italy",torneo:"serie b"},
   PT1:{paese:"portugal",torneo:"liga portugal"}};
 
+/* Dove sta girando la pagina decide se lo scaricamento e' possibile.
+   Dentro claude.ai la sandbox blocca ogni chiamata verso l'esterno, e nessuna
+   chiave puo' rimediare: meglio accorgersene da soli e portare l'utente nel
+   posto giusto, invece di lasciargli leggere un avviso e poi un errore che
+   sembra un guasto. */
+var CASA_APP="https://giorgioada.github.io/Bookmaking/";
+function ambiente(){
+  var h=(location.hostname||"").toLowerCase();
+  if(location.protocol==="file:")return{ok:true,dove:"file locale"};
+  if(h.indexOf("github.io")>=0)return{ok:true,dove:"sito"};
+  if(!h)return{ok:true,dove:"locale"};
+  return{ok:false,dove:h}}
+
 function renderAuto(){
   var box=document.getElementById("autoBox");if(!box)return;
+  var amb=ambiente();
+  if(!amb.ok){
+    box.innerHTML='<div class="verdict neutral"><h3>Qui le quote non si possono scaricare</h3>'+
+      '<p>Questa è la copia dentro claude.ai, che blocca le chiamate verso '+
+      'l’esterno. Non dipende dalla chiave né dal fornitore: la richiesta non '+
+      'parte proprio.</p></div>'+
+      '<div class="row-btn"><a class="btn" href="'+CASA_APP+'" target="_blank" '+
+      'rel="noopener" style="text-decoration:none;display:inline-block">Apri l’app vera</a></div>'+
+      '<p class="note">È la stessa app, con gli stessi dati, ma servita come sito: '+
+      'là lo scaricamento funziona. Conviene aggiungerla alla schermata Home '+
+      '(Condividi → Aggiungi a schermata Home) e aprire sempre quella.</p>';
+    return}
   var prov=state.provider||"oddsapi";
   var k=lsGet("qv2.key."+prov,"");
   var f=FORNITORI[prov];
@@ -1922,6 +1948,12 @@ function etichettaPeso(){
   state.quote=lsGet("qv2.quote",{});
   state.extra=lsGet("qv2.extra",[]);
   state.scelte=lsGet("qv2.scelte",[]);
+  var amb=ambiente();
+  if(!amb.ok)document.getElementById("ambienteBanner").innerHTML=
+    '<div class="warn" style="margin-bottom:14px"><b>Stai usando la copia dentro '+
+    'claude.ai.</b> Funziona tutto tranne lo scaricamento automatico delle quote, '+
+    'che la sandbox blocca. L’app vera è su <a href="'+CASA_APP+'" target="_blank" '+
+    'rel="noopener" style="color:var(--accent)">giorgioada.github.io/Bookmaking</a>.</div>';
   etichettaPeso();renderAuto();renderBookPicker();renderOccasioni();renderFiltri();renderLista();renderBudget();
   var g=new Date(DATI.generato);
   document.getElementById("stamp").textContent="Rating e calendario aggiornati al "+
