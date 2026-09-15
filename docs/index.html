@@ -1076,6 +1076,21 @@ function trovaPerSquadre(div,casa,osp){
    quindi il parser e' tollerante e, se non riconosce nulla, mostra le chiavi
    ricevute invece di restituire zero senza spiegazione. */
 var OP_BASE="https://api.oddspapi.io/v4";
+/* I bookmaker richiesti a OddsPapi. Il parametro risulta obbligatorio: senza,
+   la chiamata torna 400. */
+var OP_BOOKS="pinnacle,bet365,williamhill,unibet,bwin,betfair";
+
+/* Un codice HTTP da solo non dice cosa manca. Il corpo della risposta di solito
+   sì, e senza di esso si finisce a tirare a indovinare i parametri. */
+function erroreHttp(r,etichetta){
+  return r.text().then(function(t){
+    var msg="";
+    try{var j=JSON.parse(t);msg=j.message||j.error||j.detail||
+      (j.errors&&JSON.stringify(j.errors))||""}catch(e){msg=t.slice(0,200)}
+    var extra=r.status===401||r.status===403?" (chiave rifiutata)":
+      (r.status===429?" (crediti esauriti)":
+      (r.status===400?" (parametri rifiutati)":""));
+    throw new Error(etichetta+": HTTP "+r.status+extra+(msg?" — "+msg:""))})}
 
 function scaricaOddsPapi(){
   var esito=document.getElementById("autoEsito");
@@ -1087,8 +1102,7 @@ function scaricaOddsPapi(){
     .then(function(r){
       var rim=r.headers.get("x-requests-remaining");
       if(rim!=null)lsSet("qv2.quota.oddspapi",{rimasti:rim});
-      if(!r.ok)throw new Error("HTTP "+r.status+(r.status===401||r.status===403?
-        " (chiave rifiutata)":(r.status===429?" (crediti esauriti)":"")));
+      if(!r.ok)return erroreHttp(r,"tornei");
       return r.json()})
     .then(function(dati){
       var lista=Array.isArray(dati)?dati:(dati&&(dati.data||dati.tournaments)||[]);
@@ -1110,11 +1124,12 @@ function scaricaOddsPapi(){
         "catalogo ("+lista.length+" tornei ricevuti)");
       esito.innerHTML='<p class="note">'+scelti.length+' campionati trovati, scarico le quote…</p>';
       return fetch(OP_BASE+"/odds-by-tournaments?tournamentIds="+scelti.join(",")+
+        "&bookmaker="+encodeURIComponent(OP_BOOKS)+"&oddsFormat=decimal"+
         "&apiKey="+encodeURIComponent(key))
         .then(function(r){
           var rim=r.headers.get("x-requests-remaining");
           if(rim!=null)lsSet("qv2.quota.oddspapi",{rimasti:rim});
-          if(!r.ok)throw new Error("quote: HTTP "+r.status);
+          if(!r.ok)return erroreHttp(r,"quote");
           return r.json()})
         .then(function(q){return{quote:q,mappa:mappa}})})
     .then(function(res){
@@ -1161,9 +1176,16 @@ function scaricaOddsPapi(){
         'utilizzabile nella risposta.</div>';
       esito.innerHTML=h})
     .catch(function(e){
-      esito.innerHTML='<div class="warn"><b>Non riuscito.</b><br>'+esc(e.message)+
-        '<br>Se parla di <i>fetch</i> o CORS, OddsPapi non consente le chiamate dal '+
-        'browser: in quel caso resta The Odds API, che invece funziona.</div>'})}
+      var m=String(e.message||"");
+      var suggerimento="";
+      if(m.indexOf("fetch")>=0||m.indexOf("Load failed")>=0)
+        suggerimento='<br>Parla di <i>fetch</i>: il servizio non consente le chiamate '+
+          'dal browser. Resta The Odds API, che invece funziona.';
+      else if(m.indexOf("400")>=0)
+        suggerimento='<br>Il servizio ha rifiutato i parametri. Il messaggio qui sopra '+
+          'di solito dice quale manca o è sbagliato: mandamelo e lo correggo.';
+      esito.innerHTML='<div class="warn"><b>Non riuscito.</b><br>'+esc(m)+
+        suggerimento+'</div>'})}
 
 function scaricaQuote(){
   var esito=document.getElementById("autoEsito");
@@ -1186,8 +1208,7 @@ function scaricaQuote(){
       // gratuito si esaurisce senza preavviso
       var rim=r.headers.get("x-requests-remaining"),us=r.headers.get("x-requests-used");
       if(rim!=null)lsSet("qv2.quota.oddsapi",{rimasti:rim,usati:us||"?"});
-      if(!r.ok)throw new Error("HTTP "+r.status+(r.status===401?" (chiave rifiutata)":
-        (r.status===429?" (crediti esauriti)":"")));
+      if(!r.ok)return erroreHttp(r,d);
       return r.json()}).then(function(dati){
       if(!Array.isArray(dati))throw new Error("risposta di forma inattesa");
       var rip={div:d,eventi:dati.length,agg:0,scartati:[],fuori:0,senzaBook:0};
