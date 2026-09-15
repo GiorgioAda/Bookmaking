@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: bookmaking
+Version: 0.1.0
+Summary: Motore di pronostici calcistici: modello statistico, quote eque, value betting e gestione bankroll
+Requires-Python: >=3.11
+Requires-Dist: numpy>=1.26
+Requires-Dist: scipy>=1.11
+Requires-Dist: pandas>=2.1
+Provides-Extra: api
+Requires-Dist: fastapi>=0.110; extra == "api"
+Requires-Dist: uvicorn[standard]>=0.27; extra == "api"
+Requires-Dist: httpx>=0.27; extra == "api"
+Requires-Dist: sqlalchemy>=2.0; extra == "api"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4; extra == "dev"
