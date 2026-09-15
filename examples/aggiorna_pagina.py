@@ -18,6 +18,7 @@ from pathlib import Path
 
 PAGINA = Path("app/quota-vera.html")
 AUTONOMA = Path("app/quota-vera-standalone.html")
+PAGES = Path("docs/index.html")     # copia servita da GitHub Pages
 DATI = Path("app/dati.json")
 
 # Il CSS contiene graffe e simboli di percentuale, quindi niente formattazione
@@ -58,10 +59,14 @@ def main() -> None:
     AUTONOMA.write_text(TESTA + nuovo[:i] + "</head>\n<body>\n" + nuovo[i:] + CODA,
                         encoding="utf-8")
 
+    PAGES.parent.mkdir(exist_ok=True)
+    PAGES.write_text(AUTONOMA.read_text(encoding="utf-8"), encoding="utf-8")
+
     print(f"{len(dati['squadre'])} squadre, {len(dati['partite'])} partite, "
           f"{len(dati.get('bookmaker', {}))} bookmaker")
     print(f"  {PAGINA} ({PAGINA.stat().st_size / 1024:.0f} KB)")
     print(f"  {AUTONOMA} ({AUTONOMA.stat().st_size / 1024:.0f} KB)")
+    print(f"  {PAGES} ({PAGES.stat().st_size / 1024:.0f} KB)")
 
 
 if __name__ == "__main__":
