@@ -5,7 +5,34 @@ Pagina pubblicata su claude.ai: <https://claude.ai/artifact/2kcNkHW9LUndVGPjiPiP
 Si apre dal browser del telefono, non installa niente, ed e' privata finche' non
 viene condivisa.
 
-## Cosa fa, e con quali dati
+## Versione 2: calendario, confronto quote, schedina
+
+L'app ora parte dal **calendario delle prossime partite** invece che da una
+partita per volta, e costruisce la schedina da ricopiare a mano nel bookmaker.
+Non piazza scommesse e non si collega ad alcun conto.
+
+Le quattro schede: **Partite** (calendario con il pronostico del modello; si
+apre una partita, si inseriscono le quote di piu' bookmaker e si ottengono
+consenso, prezzo migliore, valore e puntata), **Schedina** (ottimizzatore
+multi-gamba con il testo pronto da ricopiare), **Bonus**, **Registro**.
+
+Per Champions, Europa e Conference League — e per le divisioni senza calendario
+pubblicato — si aggiunge la partita a mano: il modello non le copre, ma le
+quote dei bookmaker si', e sono la stima piu' accurata disponibile.
+
+### Perche' il peso del modello e' a zero
+
+Misurato su 33.300 partite in walk-forward: ogni punto di peso dato al modello
+peggiora la previsione, in modo monotono (RPS da 0,2029 a peso zero fino a
+0,2082 a peso pieno). Il modello vede solo gol e date; il mercato vede anche
+formazioni e infortuni. Il cursore resta nel Registro perche' la scelta e'
+dell'utente, ma il default e' quello che i dati indicano.
+
+Il modello non diventa inutile: resta il confronto che segnala quando una quota
+battuta a mano diverge troppo dal ragionevole, che con l'inserimento manuale e'
+quasi sempre un errore di digitazione.
+
+## Cosa faceva la versione 1
 
 Funziona **senza dati storici**, che e' il motivo per cui esiste gia' mentre il
 resto del progetto aspetta la taratura. Il trucco: invece di stimare la forza

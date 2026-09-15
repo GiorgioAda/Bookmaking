@@ -140,6 +140,42 @@ tr.hl td{background:var(--accent-bg)}
 footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
   font-size:11.5px;color:var(--ink-faint)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style><style>
+.fx{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--rule);
+  cursor:pointer;width:100%;background:none;border-left:0;border-right:0;border-top:0;text-align:left;color:inherit}
+.fx:last-child{border-bottom:0}
+.fx:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.fx-when{font-family:var(--mono);font-size:11px;color:var(--ink-faint);min-width:58px;line-height:1.3}
+.fx-t{flex:1;min-width:0}
+.fx-n{font-size:13.5px;font-weight:500;line-height:1.3;overflow-wrap:anywhere}
+.fx-p{font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-top:2px}
+.fx-go{font-family:var(--mono);font-size:14px;color:var(--ink-faint)}
+.filters{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
+.chip{font-family:var(--disp);font-size:10.5px;font-weight:600;letter-spacing:.05em;
+  text-transform:uppercase;padding:5px 9px;border-radius:2px;background:var(--panel);
+  border:1px solid var(--rule-strong);color:var(--ink-soft);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.bk{display:grid;grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr)) auto;
+  gap:5px;align-items:center;margin-bottom:6px}
+.bk input{padding:6px 7px;font-size:14px}
+.bk .rm{font-family:var(--mono);font-size:15px;line-height:1;padding:4px 7px;
+  border:1px solid var(--rule-strong);background:var(--panel-2);color:var(--ink-soft);
+  border-radius:2px;cursor:pointer}
+.bk-h{display:grid;grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr)) auto;
+  gap:5px;font-family:var(--disp);font-size:9.5px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px}
+.bk-h span:not(:first-child){text-align:right;padding-right:7px}
+.best{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;
+  padding:9px 0;border-bottom:1px solid var(--rule)}
+.best:last-of-type{border-bottom:0}
+.best-s{font-family:var(--disp);font-weight:700;font-size:15px;width:26px}
+.best-d{font-size:11.5px;color:var(--ink-soft);line-height:1.35}
+.best-e{font-family:var(--mono);font-weight:600;font-size:15px;text-align:right}
+.back{font-family:var(--disp);font-size:11.5px;font-weight:600;color:var(--ink-soft);
+  background:none;border:0;padding:0 0 10px;cursor:pointer;letter-spacing:.03em}
+.back:focus-visible{outline:2px solid var(--accent)}
+.stamp{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:14px}
 </style>
 
 <div class="wrap">
@@ -150,89 +186,72 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
   </div>
   <div class="bar"><i id="budgetBar" style="width:0%"></i></div>
   <nav role="tablist">
-    <button role="tab" id="tab-partita" aria-selected="true" aria-controls="p-partita">Partita</button>
+    <button role="tab" id="tab-partite" aria-selected="true" aria-controls="p-partite">Partite</button>
     <button role="tab" id="tab-schedina" aria-selected="false" aria-controls="p-schedina">Schedina</button>
     <button role="tab" id="tab-bonus" aria-selected="false" aria-controls="p-bonus">Bonus</button>
     <button role="tab" id="tab-registro" aria-selected="false" aria-controls="p-registro">Registro</button>
   </nav>
 </div>
 
-<!-- ============ PARTITA ============ -->
-<section id="p-partita" role="tabpanel" aria-labelledby="tab-partita">
-  <p class="lede">Inserisci le quote 1X2 che vedi sul bookmaker. L'app toglie il
-  margine del banco, ricava i gol attesi impliciti e da quelli calcola la quota
-  equa di <em>tutti</em> gli altri mercati.</p>
-
-  <div class="panel">
-    <div class="eyebrow">Partita <span class="pill ex" id="exBadge">esempio</span></div>
-    <div class="grid g2">
-      <div><label for="fCasa">Squadra di casa</label>
-        <input type="text" id="fCasa" value="Inter" autocomplete="off"></div>
-      <div><label for="fOspiti">Squadra ospite</label>
-        <input type="text" id="fOspiti" value="Lecce" autocomplete="off"></div>
+<!-- ===== PARTITE ===== -->
+<section id="p-partite" role="tabpanel" aria-labelledby="tab-partite">
+  <div id="listaView">
+    <p class="lede">Calendario delle prossime partite con il pronostico del modello,
+    stimato su <b>104.556 partite dal 2000 a oggi</b>. Apri una partita e inserisci
+    le quote dei bookmaker per trovare il prezzo migliore e il valore.</p>
+    <div class="filters" id="filtri"></div>
+    <div class="panel"><div id="listaBox"></div></div>
+    <div class="panel">
+      <div class="eyebrow">Partita fuori calendario</div>
+      <p class="lede" style="margin-bottom:10px">Champions, Europa e Conference League,
+      o qualunque altra partita: qui il modello non arriva — le sue scale non sono
+      confrontabili fra nazioni — ma le quote dei bookmaker sì, e sono la stima
+      più accurata che abbiamo.</p>
+      <div class="grid g2">
+        <div><label for="nvCasa">Squadra di casa</label>
+          <input type="text" id="nvCasa" placeholder="Inter" autocomplete="off"></div>
+        <div><label for="nvOspiti">Squadra ospite</label>
+          <input type="text" id="nvOspiti" placeholder="Real Madrid" autocomplete="off"></div>
+      </div>
+      <div class="row-btn"><button class="btn ghost" id="btnNuova">Aggiungi e apri</button></div>
     </div>
-    <div class="eyebrow" style="margin-top:14px">Quote 1X2 del tuo bookmaker</div>
-    <div class="grid g3">
-      <div><label for="f1">1 — casa</label>
-        <input type="number" id="f1" step="0.01" min="1.01" value="1.30" inputmode="decimal"></div>
-      <div><label for="fX">X — pareggio</label>
-        <input type="number" id="fX" step="0.01" min="1.01" value="5.50" inputmode="decimal"></div>
-      <div><label for="f2">2 — ospiti</label>
-        <input type="number" id="f2" step="0.01" min="1.01" value="9.50" inputmode="decimal"></div>
-    </div>
-    <div class="eyebrow" style="margin-top:14px">Over/Under 2.5 — facoltativo, affina la stima</div>
-    <div class="grid g2">
-      <div><label for="fOv">Over 2.5</label>
-        <input type="number" id="fOv" step="0.01" min="1.01" value="1.72" inputmode="decimal"></div>
-      <div><label for="fUn">Under 2.5</label>
-        <input type="number" id="fUn" step="0.01" min="1.01" value="2.05" inputmode="decimal"></div>
-    </div>
+    <div class="warn"><b>Calendari disponibili per 5 divisioni su 11</b> — Serie A,
+    Premier League, Championship, Bundesliga, LaLiga. Serie B, 2.Bundesliga, LaLiga2,
+    Ligue 1 e 2 e Portogallo non hanno ancora un calendario pubblicato per questa
+    stagione. Il <em>modello</em> le copre tutte e undici: manca solo l'elenco delle
+    partite future, quindi aggiungile a mano qui sopra.</div>
+    <p class="stamp" id="stamp"></p>
   </div>
 
-  <div id="verdictBox"></div>
-
-  <div class="panel">
-    <div class="eyebrow">Cosa pensa davvero il banco</div>
-    <div id="fairBox"></div>
-  </div>
-
-  <div class="panel">
-    <div class="eyebrow">Quota equa sugli altri mercati</div>
-    <p class="lede" style="margin-bottom:12px">Derivati dagli stessi gol attesi, quindi
-    coerenti con l'1X2 qui sopra. <b>Serve almeno</b> è la quota oltre la quale la
-    giocata conviene, margine di sicurezza incluso.</p>
-    <div class="tbl-scroll"><table id="mktTable"></table></div>
-  </div>
-
-  <div class="panel">
-    <div class="eyebrow">Controlla una quota</div>
-    <div class="grid g2">
-      <div><label for="fMkt">Mercato</label><select id="fMkt"></select></div>
-      <div><label for="fPrice">Quota offerta</label>
-        <input type="number" id="fPrice" step="0.01" min="1.01" value="2.55" inputmode="decimal"></div>
+  <div id="dettaglioView" hidden>
+    <button class="back" id="btnBack">&larr; tutte le partite</button>
+    <div id="detHead"></div>
+    <div class="panel">
+      <div class="eyebrow">Quote dei bookmaker</div>
+      <p class="lede" style="margin-bottom:10px">Più bookmaker inserisci, più la stima
+      è solida. Il confronto fra i loro prezzi è la sola fonte di vantaggio che non
+      dipende dall'indovinare il risultato.</p>
+      <div class="bk-h"><span>Bookmaker</span><span>1</span><span>X</span><span>2</span><span></span></div>
+      <div id="bkBox"></div>
+      <div class="row-btn"><button class="btn ghost sm" id="btnAddBook">+ bookmaker</button></div>
     </div>
-    <div id="checkBox"></div>
-    <div class="row-btn">
-      <button class="btn" id="btnAdd">Aggiungi alla schedina</button>
+    <div id="detVerdict"></div>
+    <div class="panel" id="detBestPanel" hidden>
+      <div class="eyebrow">Dove conviene giocare</div>
+      <div id="bestBox"></div>
+    </div>
+    <div class="panel">
+      <div class="eyebrow">Confronto con il modello</div>
+      <div id="cmpBox"></div>
     </div>
   </div>
-
-  <div class="warn"><b>Cosa trova e cosa no.</b> Tutto qui dentro nasce dalle quote
-  1X2 <em>dello stesso banco</em>. L'app trova le incoerenze interne del suo
-  listino — mercati secondari prezzati con meno cura del principale — non un
-  vantaggio assoluto. Se l'1X2 del banco è giusto, non c'è niente da trovare.
-  Il modello statistico sui risultati storici, che è l'altra metà del progetto,
-  qui non c'è ancora.</div>
 </section>
 
-<!-- ============ SCHEDINA ============ -->
+<!-- ===== SCHEDINA ===== -->
 <section id="p-schedina" role="tabpanel" aria-labelledby="tab-schedina" hidden>
   <p class="lede">Le quote si moltiplicano, ma con loro si moltiplicano i margini
   del banco. Qui vedi cosa costa davvero ogni gamba in più.</p>
-  <div class="panel">
-    <div class="eyebrow">Gambe</div>
-    <div id="legsBox"></div>
-  </div>
+  <div class="panel"><div class="eyebrow">Gambe</div><div id="legsBox"></div></div>
   <div id="slipVerdict"></div>
   <div class="panel">
     <div class="eyebrow">Obiettivo quota</div>
@@ -249,13 +268,18 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
     <div class="tbl-scroll"><table id="frontTable"></table></div>
     <p class="note" id="frontNote"></p>
   </div>
+  <div class="panel" id="copyPanel" hidden>
+    <div class="eyebrow">Da ricopiare nel bookmaker</div>
+    <pre id="copyBox" style="font-family:var(--mono);font-size:12px;white-space:pre-wrap;
+      background:var(--panel-2);padding:11px;border-radius:3px;margin:0;overflow-wrap:anywhere"></pre>
+  </div>
   <div class="row-btn">
     <button class="btn" id="btnRegister">Registra la giocata</button>
     <button class="btn ghost" id="btnClear">Svuota schedina</button>
   </div>
 </section>
 
-<!-- ============ BONUS ============ -->
+<!-- ===== BONUS ===== -->
 <section id="p-bonus" role="tabpanel" aria-labelledby="tab-bonus" hidden>
   <p class="lede">Il bonus multipla conviene solo se supera il margine che si
   accumula gamba dopo gamba. La soglia è esatta e non dipende dalle quote che
@@ -273,26 +297,20 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
       <div><label for="fMinLeg">Quota minima per gamba</label>
         <input type="number" id="fMinLeg" step="0.01" min="1.01" value="1.25" inputmode="decimal"></div>
     </div>
-    <p class="note">Valori di Goldbet confermati da fonti indipendenti: bonus da
-    5 eventi, quota minima 1,25, tetto di vincita 50.000 €, eventi oltre 7 giorni
-    esclusi. Le percentuali fra il 9° e il 29° evento non sono note e vengono
-    interpolate — sono marcate con <span class="num">~</span>.</p>
+    <p class="note">Valori Goldbet confermati da fonti indipendenti: bonus da 5 eventi,
+    quota minima 1,25, tetto 50.000 €, eventi oltre 7 giorni esclusi. Le percentuali
+    fra il 9° e il 29° evento non sono note e vengono interpolate, marcate con <span class="num">~</span>.</p>
   </div>
-  <div class="panel">
-    <div class="eyebrow">Offerto contro necessario</div>
-    <div class="tbl-scroll"><table id="bonusTable"></table></div>
-  </div>
-  <div class="panel">
-    <div class="eyebrow">Fin dove la schedina è incassabile</div>
-    <p class="lede" style="margin-bottom:12px">Questa risposta non dipende dalle
-    percentuali intermedie, che non conosciamo: solo dalla quota minima e dal
-    margine. Calcolata su 15 giocate a settimana.</p>
+  <div class="panel"><div class="eyebrow">Offerto contro necessario</div>
+    <div class="tbl-scroll"><table id="bonusTable"></table></div></div>
+  <div class="panel"><div class="eyebrow">Fin dove la schedina è incassabile</div>
+    <p class="lede" style="margin-bottom:12px">Non dipende dalle percentuali intermedie,
+    che non conosciamo: solo dalla quota minima e dal margine. Su 15 giocate a settimana.</p>
     <div class="tbl-scroll"><table id="practTable"></table></div>
-    <p class="note" id="practNote"></p>
-  </div>
+    <p class="note" id="practNote"></p></div>
 </section>
 
-<!-- ============ REGISTRO ============ -->
+<!-- ===== REGISTRO ===== -->
 <section id="p-registro" role="tabpanel" aria-labelledby="tab-registro" hidden>
   <p class="lede">Il rendimento vero, non quello che l'app prometteva.</p>
   <div class="panel">
@@ -304,60 +322,52 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
         <input type="number" id="fBankroll" step="50" min="50" value="1200" inputmode="decimal"></div>
     </div>
     <p class="note">Kelly dimensiona sul capitale di stagione, non sul budget
-    settimanale: chi versa 30 € a settimana per una stagione rischia circa
-    1.200 €, non 30. Il budget settimanale resta come tetto di spesa.</p>
+    settimanale: chi versa 30 € a settimana per una stagione rischia circa 1.200 €.
+    Il budget settimanale resta come tetto di spesa.</p>
   </div>
   <div class="panel">
-    <div class="eyebrow">Andamento</div>
-    <div id="statsBox"></div>
+    <div class="eyebrow">Quanto pesa il modello</div>
+    <div><label for="fW">Peso del modello rispetto alle quote</label>
+      <input type="range" id="fW" min="0" max="100" step="5" value="0" style="padding:0">
+      <div class="kv" style="border:0;padding-top:6px"><span id="wLabel"></span></div></div>
+    <p class="note">Misurato su <b>33.300 partite</b> in walk-forward: ogni punto di
+    peso dato al modello <b>peggiora</b> la previsione, in modo monotono. L'errore
+    minimo (RPS 0,2029) è a peso zero, cioè quote pure; a peso pieno sale a 0,2082.
+    Il modello vede solo gol e date, il mercato vede anche formazioni e infortuni.
+    Il cursore resta perché la scelta è tua, ma il default è quello che i dati indicano.</p>
   </div>
-  <div class="panel">
-    <div class="eyebrow">Giocate</div>
-    <div id="logBox"></div>
-  </div>
+  <div class="panel"><div class="eyebrow">Andamento</div><div id="statsBox"></div></div>
+  <div class="panel"><div class="eyebrow">Giocate</div><div id="logBox"></div></div>
   <div id="storeNote"></div>
 </section>
 
 <footer>
-  I conti di questa pagina sono gli stessi verificati nel motore Python del
-  progetto. Il valore atteso mostrato serve a ordinare le giocate dalla migliore
-  alla peggiore, non a prevedere quanto guadagnerai. Con un banco efficiente
-  resta negativo.
+  Modello Dixon-Coles stimato su 104.556 partite di undici divisioni, tarato per
+  nazione in walk-forward. Il valore atteso mostrato serve a ordinare le giocate
+  dalla migliore alla peggiore, non a prevedere quanto guadagnerai: con un banco
+  efficiente resta negativo.
 </footer>
 </div>
-
+<script id="datiApp" type="application/json">{"generato":"2026-09-15T20:47","rho":0.0563,"squadre":{"Arezzo":{"att":0.2804,"dif":0.326,"paese":"IT"},"Ascoli":{"att":-0.1484,"dif":-0.0356,"paese":"IT"},"Atalanta":{"att":0.4643,"dif":-0.4181,"paese":"IT"},"Avellino":{"att":-0.2044,"dif":0.1425,"paese":"IT"},"Bari":{"att":-0.2692,"dif":0.1906,"paese":"IT"},"Benevento":{"att":-0.2297,"dif":0.2314,"paese":"IT"},"Bologna":{"att":0.283,"dif":-0.2359,"paese":"IT"},"Brescia":{"att":-0.2121,"dif":0.0622,"paese":"IT"},"Cagliari":{"att":0.0858,"dif":-0.0975,"paese":"IT"},"Carrarese":{"att":-0.1877,"dif":0.1612,"paese":"IT"},"Catanzaro":{"att":0.1199,"dif":0.2029,"paese":"IT"},"Cesena":{"att":-0.1752,"dif":0.2088,"paese":"IT"},"Cittadella":{"att":-0.3905,"dif":0.1399,"paese":"IT"},"Como":{"att":0.4474,"dif":-0.4074,"paese":"IT"},"Cosenza":{"att":-0.3424,"dif":0.1752,"paese":"IT"},"Cremonese":{"att":-0.0826,"dif":0.0406,"paese":"IT"},"Empoli":{"att":-0.1376,"dif":0.1105,"paese":"IT"},"FeralpiSalo":{"att":-0.088,"dif":0.2792,"paese":"IT"},"Fiorentina":{"att":0.2292,"dif":-0.1243,"paese":"IT"},"Frosinone":{"att":0.2019,"dif":-0.1331,"paese":"IT"},"Genoa":{"att":0.0668,"dif":-0.1628,"paese":"IT"},"Inter":{"att":0.812,"dif":-0.4721,"paese":"IT"},"Juve Stabia":{"att":-0.2019,"dif":-0.0134,"paese":"IT"},"Juventus":{"att":0.4436,"dif":-0.5113,"paese":"IT"},"Lazio":{"att":0.2255,"dif":-0.3373,"paese":"IT"},"Lecce":{"att":-0.1955,"dif":-0.1048,"paese":"IT"},"Lecco":{"att":-0.254,"dif":0.4087,"paese":"IT"},"Mantova":{"att":-0.06,"dif":0.2359,"paese":"IT"},"Milan":{"att":0.4265,"dif":-0.3601,"paese":"IT"},"Modena":{"att":-0.0742,"dif":-0.0557,"paese":"IT"},"Monza":{"att":0.0923,"dif":-0.0123,"paese":"IT"},"Napoli":{"att":0.4393,"dif":-0.4564,"paese":"IT"},"Padova":{"att":-0.2987,"dif":0.0522,"paese":"IT"},"Palermo":{"att":0.1044,"dif":-0.1046,"paese":"IT"},"Parma":{"att":-0.0968,"dif":-0.1761,"paese":"IT"},"Perugia":{"att":-0.0508,"dif":0.0619,"paese":"IT"},"Pescara":{"att":-0.0275,"dif":0.364,"paese":"IT"},"Pisa":{"att":-0.1317,"dif":0.1534,"paese":"IT"},"Reggiana":{"att":-0.3486,"dif":0.1999,"paese":"IT"},"Reggina":{"att":-0.0594,"dif":0.0304,"paese":"IT"},"Roma":{"att":0.5485,"dif":-0.5208,"paese":"IT"},"Salernitana":{"att":-0.2181,"dif":0.1449,"paese":"IT"},"Sampdoria":{"att":-0.352,"dif":0.0851,"paese":"IT"},"Sassuolo":{"att":0.2645,"dif":-0.0564,"paese":"IT"},"Spal":{"att":-0.0905,"dif":0.0513,"paese":"IT"},"Spezia":{"att":-0.1028,"dif":0.181,"paese":"IT"},"Sudtirol":{"att":-0.2493,"dif":0.1064,"paese":"IT"},"Ternana":{"att":-0.1729,"dif":0.0818,"paese":"IT"},"Torino":{"att":0.1483,"dif":-0.0331,"paese":"IT"},"Udinese":{"att":0.1944,"dif":-0.1413,"paese":"IT"},"Venezia":{"att":0.2296,"dif":-0.1254,"paese":"IT"},"Verona":{"att":-0.2388,"dif":0.0329,"paese":"IT"},"Vicenza":{"att":-0.0131,"dif":0.4934,"paese":"IT"},"Virtus Entella":{"att":-0.4083,"dif":0.1337,"paese":"IT"},"Arsenal":{"att":0.5544,"dif":-0.7674,"paese":"EN"},"Aston Villa":{"att":0.3355,"dif":-0.1956,"paese":"EN"},"Birmingham":{"att":-0.2051,"dif":0.0086,"paese":"EN"},"Blackburn":{"att":-0.3526,"dif":0.0121,"paese":"EN"},"Blackpool":{"att":-0.1449,"dif":0.1628,"paese":"EN"},"Bolton":{"att":-0.2952,"dif":0.1066,"paese":"EN"},"Bournemouth":{"att":0.3315,"dif":-0.2128,"paese":"EN"},"Brentford":{"att":0.3649,"dif":-0.2105,"paese":"EN"},"Brighton":{"att":0.3915,"dif":-0.2025,"paese":"EN"},"Bristol City":{"att":-0.1341,"dif":0.0867,"paese":"EN"},"Burnley":{"att":0.0062,"dif":0.0348,"paese":"EN"},"Cardiff":{"att":-0.2334,"dif":0.2916,"paese":"EN"},"Charlton":{"att":-0.3471,"dif":0.0073,"paese":"EN"},"Chelsea":{"att":0.4378,"dif":-0.1657,"paese":"EN"},"Coventry":{"att":0.1675,"dif":-0.0625,"paese":"EN"},"Crystal Palace":{"att":0.1202,"dif":-0.1443,"paese":"EN"},"Derby":{"att":-0.1084,"dif":0.0985,"paese":"EN"},"Everton":{"att":0.1329,"dif":-0.2985,"paese":"EN"},"Fulham":{"att":0.177,"dif":-0.1882,"paese":"EN"},"Huddersfield":{"att":-0.255,"dif":0.2324,"paese":"EN"},"Hull":{"att":-0.0747,"dif":0.0521,"paese":"EN"},"Ipswich":{"att":0.1589,"dif":0.0685,"paese":"EN"},"Leeds":{"att":0.2366,"dif":-0.2599,"paese":"EN"},"Leicester":{"att":-0.117,"dif":0.1662,"paese":"EN"},"Lincoln":{"att":-0.403,"dif":0.0743,"paese":"EN"},"Liverpool":{"att":0.5637,"dif":-0.2164,"paese":"EN"},"Luton":{"att":-0.1931,"dif":0.1858,"paese":"EN"},"Man City":{"att":0.6578,"dif":-0.5206,"paese":"EN"},"Man United":{"att":0.4358,"dif":-0.1942,"paese":"EN"},"Middlesbrough":{"att":0.042,"dif":-0.0235,"paese":"EN"},"Millwall":{"att":-0.1307,"dif":-0.0482,"paese":"EN"},"Newcastle":{"att":0.4242,"dif":-0.194,"paese":"EN"},"Norwich":{"att":-0.0288,"dif":0.1176,"paese":"EN"},"Nott'm Forest":{"att":0.2585,"dif":-0.2593,"paese":"EN"},"Nottm Forest":{"att":0.1521,"dif":-0.1246,"paese":"EN"},"Oxford":{"att":-0.3681,"dif":0.0938,"paese":"EN"},"Plymouth":{"att":-0.2105,"dif":0.3772,"paese":"EN"},"Portsmouth":{"att":-0.2296,"dif":0.23,"paese":"EN"},"Preston":{"att":-0.2629,"dif":0.2179,"paese":"EN"},"QPR":{"att":-0.1318,"dif":0.2177,"paese":"EN"},"Reading":{"att":-0.1806,"dif":0.1145,"paese":"EN"},"Rotherham":{"att":-0.3981,"dif":0.3334,"paese":"EN"},"Sheffield United":{"att":-0.0399,"dif":0.1056,"paese":"EN"},"Sheffield Weds":{"att":-0.5258,"dif":0.3779,"paese":"EN"},"Southampton":{"att":0.1848,"dif":0.122,"paese":"EN"},"Stoke":{"att":-0.3232,"dif":0.1393,"paese":"EN"},"Sunderland":{"att":-0.0765,"dif":-0.2179,"paese":"EN"},"Swansea":{"att":-0.132,"dif":0.0185,"paese":"EN"},"Tottenham":{"att":0.2242,"dif":-0.0333,"paese":"EN"},"Watford":{"att":-0.2699,"dif":0.1485,"paese":"EN"},"West Brom":{"att":-0.1967,"dif":0.0176,"paese":"EN"},"West Ham":{"att":0.2052,"dif":0.0043,"paese":"EN"},"Wigan":{"att":-0.2669,"dif":0.0853,"paese":"EN"},"Wolves":{"att":0.0419,"dif":0.058,"paese":"EN"},"Wrexham":{"att":0.0291,"dif":0.1667,"paese":"EN"},"Augsburg":{"att":0.0523,"dif":-0.1255,"paese":"DE"},"Bayern Munich":{"att":0.9326,"dif":-0.4627,"paese":"DE"},"Bielefeld":{"att":-0.0773,"dif":0.1299,"paese":"DE"},"Bochum":{"att":-0.1878,"dif":0.0131,"paese":"DE"},"Braunschweig":{"att":-0.3011,"dif":0.1916,"paese":"DE"},"Cottbus":{"att":0.0991,"dif":0.5475,"paese":"DE"},"Darmstadt":{"att":-0.0984,"dif":0.072,"paese":"DE"},"Dortmund":{"att":0.5234,"dif":-0.4351,"paese":"DE"},"Dresden":{"att":-0.0448,"dif":0.1458,"paese":"DE"},"Ein Frankfurt":{"att":0.3769,"dif":-0.1097,"paese":"DE"},"Elversberg":{"att":0.1043,"dif":-0.0719,"paese":"DE"},"FC Koln":{"att":0.0329,"dif":-0.0795,"paese":"DE"},"Fortuna Dusseldorf":{"att":-0.1527,"dif":0.0604,"paese":"DE"},"Freiburg":{"att":0.2004,"dif":-0.1463,"paese":"DE"},"Greuther Furth":{"att":-0.124,"dif":0.2562,"paese":"DE"},"Hamburg":{"att":0.1465,"dif":-0.1019,"paese":"DE"},"Hannover":{"att":-0.0989,"dif":-0.088,"paese":"DE"},"Hansa Rostock":{"att":-0.5184,"dif":0.1335,"paese":"DE"},"Heidenheim":{"att":0.0937,"dif":0.0701,"paese":"DE"},"Hertha":{"att":-0.0138,"dif":0.0628,"paese":"DE"},"Hoffenheim":{"att":0.3352,"dif":-0.046,"paese":"DE"},"Holstein Kiel":{"att":-0.0413,"dif":0.0936,"paese":"DE"},"Kaiserslautern":{"att":-0.0928,"dif":0.0534,"paese":"DE"},"Karlsruhe":{"att":0.01,"dif":0.2204,"paese":"DE"},"Leverkusen":{"att":0.5188,"dif":-0.3657,"paese":"DE"},"M'gladbach":{"att":0.0776,"dif":-0.1335,"paese":"DE"},"MGladbach":{"att":0.2557,"dif":-0.0654,"paese":"DE"},"Magdeburg":{"att":-0.0262,"dif":0.1791,"paese":"DE"},"Mainz":{"att":0.1095,"dif":-0.2676,"paese":"DE"},"Nurnberg":{"att":-0.0579,"dif":0.0734,"paese":"DE"},"Osnabruck":{"att":-0.3876,"dif":0.3542,"paese":"DE"},"Paderborn":{"att":0.0117,"dif":-0.0013,"paese":"DE"},"Preussen Munster":{"att":-0.3403,"dif":-0.0282,"paese":"DE"},"Preußen Münster":{"att":-0.3423,"dif":0.1641,"paese":"DE"},"RB Leipzig":{"att":0.4237,"dif":-0.3233,"paese":"DE"},"Regensburg":{"att":-0.6359,"dif":0.3325,"paese":"DE"},"Sandhausen":{"att":-0.3618,"dif":0.294,"paese":"DE"},"Schalke 04":{"att":-0.1181,"dif":-0.0048,"paese":"DE"},"St Pauli":{"att":-0.2299,"dif":-0.186,"paese":"DE"},"Stuttgart":{"att":0.4868,"dif":-0.2213,"paese":"DE"},"Ulm":{"att":-0.3721,"dif":0.0397,"paese":"DE"},"Union Berlin":{"att":0.001,"dif":-0.1488,"paese":"DE"},"Wehen":{"att":-0.3759,"dif":0.081,"paese":"DE"},"Werder Bremen":{"att":0.053,"dif":-0.087,"paese":"DE"},"Wolfsburg":{"att":0.1505,"dif":-0.0779,"paese":"DE"},"Alaves":{"att":0.0417,"dif":-0.1931,"paese":"ES"},"Albacete":{"att":0.0126,"dif":0.1665,"paese":"ES"},"Alcorcon":{"att":-0.4143,"dif":0.1378,"paese":"ES"},"Almeria":{"att":0.3049,"dif":0.2112,"paese":"ES"},"Amorebieta":{"att":-0.2955,"dif":0.156,"paese":"ES"},"Andorra":{"att":0.054,"dif":0.138,"paese":"ES"},"Ath Bilbao":{"att":0.1831,"dif":-0.2651,"paese":"ES"},"Ath Madrid":{"att":0.4827,"dif":-0.3823,"paese":"ES"},"Barcelona":{"att":0.8278,"dif":-0.4422,"paese":"ES"},"Betis":{"att":0.3216,"dif":-0.1935,"paese":"ES"},"Burgos":{"att":-0.1619,"dif":-0.1048,"paese":"ES"},"Cadiz":{"att":-0.2001,"dif":0.1095,"paese":"ES"},"Cartagena":{"att":-0.346,"dif":0.3347,"paese":"ES"},"Castellon":{"att":0.2223,"dif":0.1244,"paese":"ES"},"Celta":{"att":0.2235,"dif":-0.1561,"paese":"ES"},"Celta B":{"att":0.1481,"dif":0.1225,"paese":"ES"},"Ceuta":{"att":-0.0978,"dif":0.3603,"paese":"ES"},"Cordoba":{"att":0.0907,"dif":0.3044,"paese":"ES"},"Cultural Leonesa":{"att":-0.3174,"dif":0.3352,"paese":"ES"},"Eibar":{"att":-0.0445,"dif":-0.1245,"paese":"ES"},"Elche":{"att":0.0775,"dif":-0.0391,"paese":"ES"},"Eldense":{"att":-0.1975,"dif":0.2871,"paese":"ES"},"Espanol":{"att":0.0963,"dif":-0.0979,"paese":"ES"},"Ferrol":{"att":-0.4822,"dif":0.2514,"paese":"ES"},"Getafe":{"att":-0.1944,"dif":-0.3762,"paese":"ES"},"Girona":{"att":0.2409,"dif":-0.0753,"paese":"ES"},"Granada":{"att":0.0298,"dif":0.1081,"paese":"ES"},"Huesca":{"att":-0.1899,"dif":0.1187,"paese":"ES"},"Ibiza":{"att":-0.2878,"dif":0.2985,"paese":"ES"},"La Coruna":{"att":0.1214,"dif":0.0004,"paese":"ES"},"Las Palmas":{"att":0.0143,"dif":-0.0762,"paese":"ES"},"Leganes":{"att":-0.1478,"dif":-0.0695,"paese":"ES"},"Levante":{"att":0.1543,"dif":-0.0367,"paese":"ES"},"Lugo":{"att":-0.4969,"dif":0.1848,"paese":"ES"},"Malaga":{"att":0.098,"dif":0.0482,"paese":"ES"},"Mallorca":{"att":0.0232,"dif":-0.1939,"paese":"ES"},"Mirandes":{"att":-0.048,"dif":0.2051,"paese":"ES"},"Osasuna":{"att":0.1032,"dif":-0.1892,"paese":"ES"},"Oviedo":{"att":-0.1821,"dif":-0.0926,"paese":"ES"},"Ponferradina":{"att":-0.208,"dif":0.0759,"paese":"ES"},"Real Madrid":{"att":0.6633,"dif":-0.5072,"paese":"ES"},"Sabadell":{"att":-0.5584,"dif":-0.8712,"paese":"ES"},"Santander":{"att":0.3269,"dif":0.1958,"paese":"ES"},"Sevilla":{"att":0.1566,"dif":-0.0529,"paese":"ES"},"Sociedad":{"att":0.208,"dif":-0.1507,"paese":"ES"},"Sociedad B":{"att":-0.046,"dif":0.2208,"paese":"ES"},"Sp Gijon":{"att":0.0356,"dif":0.08,"paese":"ES"},"Tenerife":{"att":-0.3073,"dif":-0.0179,"paese":"ES"},"Valencia":{"att":0.0671,"dif":-0.1508,"paese":"ES"},"Valladolid":{"att":-0.2274,"dif":0.2038,"paese":"ES"},"Vallecano":{"att":0.004,"dif":-0.2265,"paese":"ES"},"Villarreal":{"att":0.5385,"dif":-0.1521,"paese":"ES"},"Villarreal B":{"att":-0.1834,"dif":0.2755,"paese":"ES"},"Zaragoza":{"att":-0.2336,"dif":0.1757,"paese":"ES"},"Ajaccio":{"att":-0.3893,"dif":0.0865,"paese":"FR"},"Amiens":{"att":-0.2386,"dif":0.3911,"paese":"FR"},"Angers":{"att":-0.1437,"dif":-0.1091,"paese":"FR"},"Annecy":{"att":-0.0084,"dif":0.0222,"paese":"FR"},"Auxerre":{"att":0.1068,"dif":-0.1148,"paese":"FR"},"Bastia":{"att":-0.3341,"dif":0.0023,"paese":"FR"},"Bordeaux":{"att":-0.0067,"dif":0.0554,"paese":"FR"},"Boulogne":{"att":-0.4063,"dif":0.0992,"paese":"FR"},"Brest":{"att":0.2301,"dif":-0.0309,"paese":"FR"},"Caen":{"att":-0.239,"dif":0.2572,"paese":"FR"},"Clermont":{"att":-0.293,"dif":0.0787,"paese":"FR"},"Concarneau":{"att":-0.1786,"dif":0.2036,"paese":"FR"},"Dijon":{"att":-0.2459,"dif":0.1469,"paese":"FR"},"Dunkerque":{"att":0.0557,"dif":0.1924,"paese":"FR"},"Grenoble":{"att":-0.2408,"dif":0.0701,"paese":"FR"},"Guingamp":{"att":-0.0672,"dif":0.1741,"paese":"FR"},"Laval":{"att":-0.2864,"dif":0.1851,"paese":"FR"},"Le Havre":{"att":-0.0883,"dif":-0.1585,"paese":"FR"},"Le Mans":{"att":0.125,"dif":-0.1365,"paese":"FR"},"Lens":{"att":0.4672,"dif":-0.3456,"paese":"FR"},"Lille":{"att":0.2962,"dif":-0.4849,"paese":"FR"},"Lorient":{"att":0.2355,"dif":-0.1264,"paese":"FR"},"Lyon":{"att":0.3963,"dif":-0.2556,"paese":"FR"},"Marseille":{"att":0.499,"dif":-0.2084,"paese":"FR"},"Martigues":{"att":-0.3411,"dif":0.2709,"paese":"FR"},"Metz":{"att":0.0024,"dif":0.1422,"paese":"FR"},"Monaco":{"att":0.4783,"dif":-0.1799,"paese":"FR"},"Montpellier":{"att":-0.1912,"dif":-0.0926,"paese":"FR"},"Nancy":{"att":-0.2781,"dif":0.1525,"paese":"FR"},"Nantes":{"att":-0.1276,"dif":0.004,"paese":"FR"},"Nice":{"att":0.1055,"dif":-0.1094,"paese":"FR"},"Nimes":{"att":-0.0489,"dif":0.2156,"paese":"FR"},"Niort":{"att":-0.164,"dif":0.2153,"paese":"FR"},"Paris FC":{"att":0.1721,"dif":-0.2083,"paese":"FR"},"Paris SG":{"att":0.7046,"dif":-0.4704,"paese":"FR"},"Pau FC":{"att":-0.059,"dif":0.3756,"paese":"FR"},"Quevilly Rouen":{"att":-0.0151,"dif":0.1611,"paese":"FR"},"Red Star":{"att":-0.0943,"dif":0.0898,"paese":"FR"},"Reims":{"att":0.1265,"dif":-0.1227,"paese":"FR"},"Rennes":{"att":0.4527,"dif":-0.1065,"paese":"FR"},"Rodez":{"att":0.1225,"dif":0.1278,"paese":"FR"},"Sochaux":{"att":-0.6099,"dif":-0.2222,"paese":"FR"},"St Etienne":{"att":0.265,"dif":0.0527,"paese":"FR"},"Strasbourg":{"att":0.3725,"dif":-0.1332,"paese":"FR"},"Toulouse":{"att":0.1546,"dif":-0.1916,"paese":"FR"},"Troyes":{"att":0.0731,"dif":-0.1413,"paese":"FR"},"Valenciennes":{"att":-0.3488,"dif":0.1846,"paese":"FR"},"AVS":{"att":-0.3688,"dif":0.2727,"paese":"PT"},"Academico Viseu":{"att":0.0547,"dif":0.1515,"paese":"PT"},"Alverca":{"att":-0.1006,"dif":0.0895,"paese":"PT"},"Arouca":{"att":0.1394,"dif":0.0968,"paese":"PT"},"Benfica":{"att":0.6549,"dif":-0.4877,"paese":"PT"},"Boavista":{"att":-0.2149,"dif":0.2204,"paese":"PT"},"Casa Pia":{"att":-0.2205,"dif":0.1219,"paese":"PT"},"Chaves":{"att":-0.2002,"dif":0.2201,"paese":"PT"},"Estoril":{"att":0.1742,"dif":0.1677,"paese":"PT"},"Estrela":{"att":-0.1076,"dif":0.1287,"paese":"PT"},"Famalicao":{"att":-0.0115,"dif":-0.265,"paese":"PT"},"Farense":{"att":-0.181,"dif":0.0034,"paese":"PT"},"Gil Vicente":{"att":-0.0092,"dif":-0.1212,"paese":"PT"},"Guimaraes":{"att":0.0421,"dif":-0.0764,"paese":"PT"},"Maritimo":{"att":0.0084,"dif":0.0942,"paese":"PT"},"Moreirense":{"att":-0.0749,"dif":0.0218,"paese":"PT"},"Nacional":{"att":-0.0821,"dif":0.0114,"paese":"PT"},"Pacos Ferreira":{"att":-0.2374,"dif":0.1563,"paese":"PT"},"Portimonense":{"att":-0.149,"dif":0.2943,"paese":"PT"},"Porto":{"att":0.441,"dif":-0.6653,"paese":"PT"},"Rio Ave":{"att":-0.1183,"dif":0.0957,"paese":"PT"},"Santa Clara":{"att":-0.1624,"dif":-0.1808,"paese":"PT"},"Sp Braga":{"att":0.4126,"dif":-0.2188,"paese":"PT"},"Sp Lisbon":{"att":0.7574,"dif":-0.4403,"paese":"PT"},"Tondela":{"att":-0.3201,"dif":0.1317,"paese":"PT"},"Vizela":{"att":-0.1219,"dif":0.1752,"paese":"PT"}},"divisioni":{"IT1":{"base":0.1084,"casa":0.0955,"nome":"Serie A"},"IT2":{"base":0.1007,"casa":0.2667,"nome":"Serie B"},"EN1":{"base":0.129,"casa":0.188,"nome":"Premier League"},"EN2":{"base":0.1828,"casa":0.1982,"nome":"Championship"},"DE1":{"base":0.2528,"casa":0.2079,"nome":"Bundesliga"},"DE2":{"base":0.3124,"casa":0.2014,"nome":"2. Bundesliga"},"ES1":{"base":0.066,"casa":0.3,"nome":"LaLiga"},"ES2":{"base":-0.0123,"casa":0.2714,"nome":"LaLiga 2"},"FR1":{"base":0.1505,"casa":0.1935,"nome":"Ligue 1"},"FR2":{"base":0.1477,"casa":0.1412,"nome":"Ligue 2"},"PT1":{"base":0.0998,"casa":0.2038,"nome":"Primeira Liga"}},"partite":[{"id":"ES1|20260915|Elche|Real Madrid","div":"ES1","quando":"2026-09-15T21:30","casa":"Elche","ospiti":"Real Madrid","noti":true},{"id":"ES1|20260916|Ath Madrid|Osasuna","div":"ES1","quando":"2026-09-16T00:00","casa":"Ath Madrid","ospiti":"Osasuna","noti":true},{"id":"ES1|20260916|Barcelona|Santander","div":"ES1","quando":"2026-09-16T00:00","casa":"Barcelona","ospiti":"Santander","noti":true},{"id":"ES1|20260916|La Coruna|Sevilla","div":"ES1","quando":"2026-09-16T19:00","casa":"La Coruna","ospiti":"Sevilla","noti":true},{"id":"ES1|20260916|Levante|Ath Bilbao","div":"ES1","quando":"2026-09-16T21:30","casa":"Levante","ospiti":"Ath Bilbao","noti":true},{"id":"ES1|20260917|Betis|Getafe","div":"ES1","quando":"2026-09-17T19:00","casa":"Betis","ospiti":"Getafe","noti":true},{"id":"ES1|20260917|Malaga|Villarreal","div":"ES1","quando":"2026-09-17T21:30","casa":"Malaga","ospiti":"Villarreal","noti":true},{"id":"EN1|20260918|Brentford|Chelsea","div":"EN1","quando":"2026-09-18T20:00","casa":"Brentford","ospiti":"Chelsea","noti":true},{"id":"EN2|20260918|Bristol City|Watford","div":"EN2","quando":"2026-09-18T20:00","casa":"Bristol City","ospiti":"Watford","noti":true},{"id":"DE1|20260918|Bayern Munich|Union Berlin","div":"DE1","quando":"2026-09-18T20:30","casa":"Bayern Munich","ospiti":"Union Berlin","noti":true},{"id":"IT1|20260918|Monza|Sassuolo","div":"IT1","quando":"2026-09-18T20:45","casa":"Monza","ospiti":"Sassuolo","noti":true},{"id":"ES1|20260918|Espanol|Elche","div":"ES1","quando":"2026-09-18T21:00","casa":"Espanol","ospiti":"Elche","noti":true},{"id":"IT1|20260919|Udinese|Cagliari","div":"IT1","quando":"2026-09-19T00:00","casa":"Udinese","ospiti":"Cagliari","noti":true},{"id":"EN1|20260919|Brighton|Arsenal","div":"EN1","quando":"2026-09-19T00:00","casa":"Brighton","ospiti":"Arsenal","noti":true},{"id":"EN1|20260919|Newcastle|Hull","div":"EN1","quando":"2026-09-19T00:00","casa":"Newcastle","ospiti":"Hull","noti":true},{"id":"EN2|20260919|Millwall|West Ham","div":"EN2","quando":"2026-09-19T00:00","casa":"Millwall","ospiti":"West Ham","noti":true},{"id":"EN2|20260919|Cardiff|Charlton","div":"EN2","quando":"2026-09-19T00:00","casa":"Cardiff","ospiti":"Charlton","noti":true},{"id":"EN2|20260919|Burnley|Derby","div":"EN2","quando":"2026-09-19T00:00","casa":"Burnley","ospiti":"Derby","noti":true},{"id":"EN2|20260919|QPR|Preston","div":"EN2","quando":"2026-09-19T00:00","casa":"QPR","ospiti":"Preston","noti":true},{"id":"EN2|20260919|Portsmouth|Blackburn","div":"EN2","quando":"2026-09-19T00:00","casa":"Portsmouth","ospiti":"Blackburn","noti":true},{"id":"EN2|20260919|Birmingham|Middlesbrough","div":"EN2","quando":"2026-09-19T00:00","casa":"Birmingham","ospiti":"Middlesbrough","noti":true},{"id":"EN2|20260919|Lincoln|Swansea","div":"EN2","quando":"2026-09-19T00:00","casa":"Lincoln","ospiti":"Swansea","noti":true},{"id":"DE1|20260919|M'gladbach|Mainz","div":"DE1","quando":"2026-09-19T00:00","casa":"M'gladbach","ospiti":"Mainz","noti":true},{"id":"DE1|20260919|Werder Bremen|Augsburg","div":"DE1","quando":"2026-09-19T00:00","casa":"Werder Bremen","ospiti":"Augsburg","noti":true},{"id":"DE1|20260919|Ein Frankfurt|Freiburg","div":"DE1","quando":"2026-09-19T00:00","casa":"Ein Frankfurt","ospiti":"Freiburg","noti":true},{"id":"EN1|20260919|Tottenham|Aston Villa","div":"EN1","quando":"2026-09-19T12:30","casa":"Tottenham","ospiti":"Aston Villa","noti":true},{"id":"EN2|20260919|Stoke|Sheffield United","div":"EN2","quando":"2026-09-19T12:30","casa":"Stoke","ospiti":"Sheffield United","noti":true},{"id":"ES1|20260919|Osasuna|Vallecano","div":"ES1","quando":"2026-09-19T14:00","casa":"Osasuna","ospiti":"Vallecano","noti":true},{"id":"IT1|20260919|Bologna|Torino","div":"IT1","quando":"2026-09-19T15:00","casa":"Bologna","ospiti":"Torino","noti":true},{"id":"EN1|20260919|Everton|Ipswich","div":"EN1","quando":"2026-09-19T15:00","casa":"Everton","ospiti":"Ipswich","noti":true},{"id":"EN2|20260919|Wrexham|Southampton","div":"EN2","quando":"2026-09-19T15:00","casa":"Wrexham","ospiti":"Southampton","noti":true},{"id":"DE1|20260919|Hamburg|FC Koln","div":"DE1","quando":"2026-09-19T15:30","casa":"Hamburg","ospiti":"FC Koln","noti":true},{"id":"ES1|20260919|Ath Bilbao|Alaves","div":"ES1","quando":"2026-09-19T16:15","casa":"Ath Bilbao","ospiti":"Alaves","noti":true},{"id":"EN1|20260919|Nott'm Forest|Coventry","div":"EN1","quando":"2026-09-19T17:30","casa":"Nott'm Forest","ospiti":"Coventry","noti":true},{"id":"IT1|20260919|Roma|Inter","div":"IT1","quando":"2026-09-19T18:00","casa":"Roma","ospiti":"Inter","noti":true},{"id":"DE1|20260919|Stuttgart|Dortmund","div":"DE1","quando":"2026-09-19T18:30","casa":"Stuttgart","ospiti":"Dortmund","noti":true},{"id":"ES1|20260919|Celta|Santander","div":"ES1","quando":"2026-09-19T18:30","casa":"Celta","ospiti":"Santander","noti":true},{"id":"IT1|20260919|Venezia|Lazio","div":"IT1","quando":"2026-09-19T20:45","casa":"Venezia","ospiti":"Lazio","noti":true},{"id":"ES1|20260919|Sevilla|Barcelona","div":"ES1","quando":"2026-09-19T21:00","casa":"Sevilla","ospiti":"Barcelona","noti":true},{"id":"IT1|20260920|Parma|Genoa","div":"IT1","quando":"2026-09-20T00:00","casa":"Parma","ospiti":"Genoa","noti":true},{"id":"EN1|20260920|Leeds|Crystal Palace","div":"EN1","quando":"2026-09-20T00:00","casa":"Leeds","ospiti":"Crystal Palace","noti":true},{"id":"EN1|20260920|Man City|Sunderland","div":"EN1","quando":"2026-09-20T00:00","casa":"Man City","ospiti":"Sunderland","noti":true},{"id":"ES1|20260920|Villarreal|Levante","div":"ES1","quando":"2026-09-20T00:00","casa":"Villarreal","ospiti":"Levante","noti":true},{"id":"EN2|20260920|Wolves|West Brom","div":"EN2","quando":"2026-09-20T12:00","casa":"Wolves","ospiti":"West Brom","noti":true},{"id":"IT1|20260920|Fiorentina|Napoli","div":"IT1","quando":"2026-09-20T12:30","casa":"Fiorentina","ospiti":"Napoli","noti":true},{"id":"EN2|20260920|Norwich|Bolton","div":"EN2","quando":"2026-09-20T13:30","casa":"Norwich","ospiti":"Bolton","noti":true},{"id":"EN1|20260920|Bournemouth|Liverpool","div":"EN1","quando":"2026-09-20T14:00","casa":"Bournemouth","ospiti":"Liverpool","noti":true},{"id":"ES1|20260920|Getafe|Malaga","div":"ES1","quando":"2026-09-20T14:00","casa":"Getafe","ospiti":"Malaga","noti":true},{"id":"IT1|20260920|Frosinone|Como","div":"IT1","quando":"2026-09-20T15:00","casa":"Frosinone","ospiti":"Como","noti":true},{"id":"DE1|20260920|Leverkusen|RB Leipzig","div":"DE1","quando":"2026-09-20T15:30","casa":"Leverkusen","ospiti":"RB Leipzig","noti":true},{"id":"ES1|20260920|Ath Madrid|Real Madrid","div":"ES1","quando":"2026-09-20T16:15","casa":"Ath Madrid","ospiti":"Real Madrid","noti":true},{"id":"EN1|20260920|Fulham|Man United","div":"EN1","quando":"2026-09-20T16:30","casa":"Fulham","ospiti":"Man United","noti":true},{"id":"DE1|20260920|Schalke 04|Elversberg","div":"DE1","quando":"2026-09-20T17:30","casa":"Schalke 04","ospiti":"Elversberg","noti":true},{"id":"IT1|20260920|Juventus|Atalanta","div":"IT1","quando":"2026-09-20T18:00","casa":"Juventus","ospiti":"Atalanta","noti":true},{"id":"ES1|20260920|La Coruna|Betis","div":"ES1","quando":"2026-09-20T18:30","casa":"La Coruna","ospiti":"Betis","noti":true},{"id":"DE1|20260920|Paderborn|Hoffenheim","div":"DE1","quando":"2026-09-20T19:30","casa":"Paderborn","ospiti":"Hoffenheim","noti":true},{"id":"IT1|20260920|Milan|Lecce","div":"IT1","quando":"2026-09-20T20:45","casa":"Milan","ospiti":"Lecce","noti":true},{"id":"ES1|20260920|Valencia|Sociedad","div":"ES1","quando":"2026-09-20T21:00","casa":"Valencia","ospiti":"Sociedad","noti":true}],"calendari_disponibili":["DE1","EN1","EN2","ES1","IT1"],"prior_sconosciuta":{"att":-0.12,"dif":0.12}}</script>
 <script>
 "use strict";
-/* ---------- motore (identico alla versione Python, verificato sui test) ---------- */
-var MAXG=15, RHO=-0.11;
+var DATI=JSON.parse(document.getElementById("datiApp").textContent);
+var MAXG=15, MIN_EV=0.03;
+
+/* ---- motore: identico alla versione Python, verificato sui test ---- */
 function poissonPmf(lam,n){var o=new Float64Array(n+1),t=Math.exp(-lam);o[0]=t;
   for(var k=1;k<=n;k++){t=t*lam/k;o[k]=t}return o}
-function scoreMatrix(lam,mu,rho,maxg){rho=rho==null?RHO:rho;maxg=maxg||MAXG;
+function scoreMatrix(lam,mu,rho,maxg){maxg=maxg||MAXG;
   var px=poissonPmf(lam,maxg),py=poissonPmf(mu,maxg),m=[],tot=0,x,y;
   for(x=0;x<=maxg;x++){m.push(new Float64Array(maxg+1));
     for(y=0;y<=maxg;y++)m[x][y]=px[x]*py[y]}
   m[0][0]*=1-lam*mu*rho;m[0][1]*=1+lam*rho;m[1][0]*=1+mu*rho;m[1][1]*=1-rho;
   for(x=0;x<=maxg;x++)for(y=0;y<=maxg;y++){if(m[x][y]<0)m[x][y]=0;tot+=m[x][y]}
-  for(x=0;x<=maxg;x++)for(y=0;y<=maxg;y++)m[x][y]/=tot;
-  return m}
+  for(x=0;x<=maxg;x++)for(y=0;y<=maxg;y++)m[x][y]/=tot;return m}
 function outcome1x2(m){var h=0,d=0,a=0;
   for(var x=0;x<m.length;x++)for(var y=0;y<m.length;y++){
     if(x>y)h+=m[x][y];else if(x===y)d+=m[x][y];else a+=m[x][y]}
   return{"1":h,"X":d,"2":a}}
-function overUnder(m,line){var o=0,u=0;
-  for(var x=0;x<m.length;x++)for(var y=0;y<m.length;y++){
-    var t=x+y;if(t>line)o+=m[x][y];else if(t<line)u+=m[x][y]}
-  return{over:o,under:u}}
-function btts(m){var b=0;for(var x=1;x<m.length;x++)for(var y=1;y<m.length;y++)b+=m[x][y];
-  return{goal:b,nogoal:1-b}}
-function asianHandicap(m,line){
-  if(Math.abs(line*2-Math.round(line*2))>1e-9){
-    var a=asianHandicap(m,line-0.25),b=asianHandicap(m,line+0.25);
-    return{casa:(a.casa+b.casa)/2,ospiti:(a.ospiti+b.ospiti)/2,rimborso:(a.rimborso+b.rimborso)/2}}
-  var w=0,l=0,p=0;
-  for(var x=0;x<m.length;x++)for(var y=0;y<m.length;y++){var adj=x-y+line;
-    if(adj>1e-9)w+=m[x][y];else if(adj<-1e-9)l+=m[x][y];else p+=m[x][y]}
-  return{casa:w,ospiti:l,rimborso:p}}
 function shinDevig(prices){
   var keys=Object.keys(prices),q=keys.map(function(k){return 1/prices[k]});
   var bs=q.reduce(function(a,b){return a+b},0),out={};
@@ -370,24 +380,14 @@ function shinDevig(prices){
   for(var i=0;i<200;i++){var mid=(lo+hi)/2;if(f(lo)*f(mid)<=0)hi=mid;else lo=mid}
   var p=pOfZ((lo+hi)/2),s=p.reduce(function(a,b){return a+b},0);
   keys.forEach(function(k,i){out[k]=p[i]/s});return out}
-function marginOf(prices){return Object.keys(prices).reduce(function(a,k){
-  return a+1/prices[k]},0)-1}
-function impliedGoals(target){
-  function err(lam,mu){var m=scoreMatrix(lam,mu,RHO,10),p=outcome1x2(m),e=0,d;
-    d=p["1"]-target["1"];e+=d*d;d=p["X"]-target["X"];e+=d*d;d=p["2"]-target["2"];e+=d*d;
-    if(target.over25!=null){d=overUnder(m,2.5).over-target.over25;e+=d*d}
-    return e}
-  var best={lam:1.4,mu:1.2,e:Infinity},i,j;
-  for(i=0;i<=40;i++)for(j=0;j<=40;j++){
-    var lam=0.15+i*(4.05/40),mu=0.15+j*(4.05/40),e=err(lam,mu);
-    if(e<best.e)best={lam:lam,mu:mu,e:e}}
-  var step=0.12,moves=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
-  for(var it=0;it<80;it++){var imp=false;
-    for(var k=0;k<moves.length;k++){
-      var nl=Math.max(0.05,best.lam+moves[k][0]*step),nm=Math.max(0.05,best.mu+moves[k][1]*step);
-      var ee=err(nl,nm);if(ee<best.e-1e-14){best={lam:nl,mu:nm,e:ee};imp=true}}
-    if(!imp)step/=2;if(step<1e-5)break}
-  return{lambda:best.lam,mu:best.mu,residuo:Math.sqrt(best.e)}}
+function marginOf(pr){return Object.keys(pr).reduce(function(a,k){return a+1/pr[k]},0)-1}
+function blend(model,market,w){
+  if(w<=0)return market; if(w>=1)return model;
+  var keys=["1","X","2"],logs=keys.map(function(k){
+    return w*Math.log(Math.max(model[k],1e-9))+(1-w)*Math.log(Math.max(market[k],1e-9))});
+  var mx=Math.max.apply(null,logs),ex=logs.map(function(l){return Math.exp(l-mx)});
+  var s=ex.reduce(function(a,b){return a+b},0),o={};
+  keys.forEach(function(k,i){o[k]=ex[i]/s});return o}
 function kellyStake(p,price,pol){
   var b=price-1;if(b<=0)return{raw:0,stake:0};
   var raw=(p*price-1)/b;if(raw<=0)return{raw:raw,stake:0};
@@ -396,15 +396,215 @@ function kellyStake(p,price,pol){
   st=Math.floor(st/pol.step+1e-9)*pol.step;
   return{raw:raw,stake:st<pol.minStake?0:st}}
 
-/* ---------- stato ---------- */
-var MIN_EV=0.03;
-var state={legs:[],log:[],weekly:30,bankroll:1200,margin:0.04,minLeg:1.25,
-  target:5,stake:2,edited:false,mktTouched:false};
-var BONUS_ANCHORS={5:4,8:15,30:250}, BONUS_MINLEGS=5;
-var db=null;
+/* ---- modello: dai rating esportati alla previsione ---- */
+function ratingOf(nome){
+  return DATI.squadre[nome]||null}
+function modelProbs(casa,ospiti,div){
+  var a=ratingOf(casa),b=ratingOf(ospiti),d=DATI.divisioni[div];
+  if(!d)return null;
+  var pr=DATI.prior_sconosciuta;
+  var ah=a?a.att:pr.att, dh=a?a.dif:pr.dif;
+  var aa=b?b.att:pr.att, da=b?b.dif:pr.dif;
+  var lam=Math.exp(d.base+ah+da+d.casa), mu=Math.exp(d.base+aa+dh);
+  return{probs:outcome1x2(scoreMatrix(lam,mu,DATI.rho)),lam:lam,mu:mu,
+         noti:!!(a&&b)}}
 
+/* ---- stato ---- */
+var state={legs:[],log:[],weekly:30,bankroll:1200,margin:0.04,minLeg:1.25,
+  w:0,quote:{},extra:[],aperta:null,filtro:"tutte"};
+var BONUS_ANCHORS={5:4,8:15,30:250},BONUS_MINLEGS=5;
+var db=null;
 function policy(){return{bankroll:state.bankroll,fraction:0.25,shrink:0.5,
   minStake:2,step:0.5,maxStake:state.weekly*0.2}}
+function fmt(n,d){return Number(n).toFixed(d==null?2:d)}
+function pct(n,d){return(n*100).toFixed(d==null?1:d)+"%"}
+function sgn(n,d){return(n>=0?"+":"")+(n*100).toFixed(d==null?1:d)+"%"}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){
+  return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function tutteLePartite(){return DATI.partite.concat(state.extra)}
+function trovaPartita(id){var a=tutteLePartite();
+  for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null}
+
+/* ---- quote di una partita: consenso e prezzo migliore ---- */
+function analizza(p){
+  var righe=(state.quote[p.id]||[]).filter(function(r){
+    return r.o1>1&&r.oX>1&&r.o2>1});
+  var mod=modelProbs(p.casa,p.ospiti,p.div);
+  if(!righe.length)return{righe:[],mod:mod,mercato:null};
+  var acc={"1":0,"X":0,"2":0},n=0,margini=[];
+  righe.forEach(function(r){
+    var d=shinDevig({"1":r.o1,"X":r.oX,"2":r.o2});
+    acc["1"]+=d["1"];acc["X"]+=d["X"];acc["2"]+=d["2"];n++;
+    margini.push(marginOf({"1":r.o1,"X":r.oX,"2":r.o2}))});
+  var mercato={"1":acc["1"]/n,"X":acc["X"]/n,"2":acc["2"]/n};
+  var s=mercato["1"]+mercato["X"]+mercato["2"];
+  mercato["1"]/=s;mercato["X"]/=s;mercato["2"]/=s;
+  var best={};
+  ["1","X","2"].forEach(function(k){
+    var campo=k==="1"?"o1":(k==="X"?"oX":"o2"),b=null;
+    righe.forEach(function(r){if(!b||r[campo]>b.price)b={price:r[campo],book:r.book||"—"}});
+    best[k]=b});
+  var finale=mod?blend(mod.probs,mercato,state.w):mercato;
+  return{righe:righe,mod:mod,mercato:mercato,best:best,finale:finale,
+    nBooks:n,margineMedio:margini.reduce(function(a,b){return a+b},0)/n,
+    margineMin:Math.min.apply(null,margini)}}
+
+/* ---- elenco partite ---- */
+function renderFiltri(){
+  var divs={};tutteLePartite().forEach(function(p){divs[p.div]=(divs[p.div]||0)+1});
+  var h='<button class="chip" data-f="tutte" aria-pressed="'+(state.filtro==="tutte")+'">Tutte</button>';
+  Object.keys(divs).sort().forEach(function(d){
+    var nome=(DATI.divisioni[d]&&DATI.divisioni[d].nome)||d;
+    h+='<button class="chip" data-f="'+esc(d)+'" aria-pressed="'+(state.filtro===d)+'">'+
+       esc(nome)+' <span class="num">'+divs[d]+'</span></button>'});
+  var box=document.getElementById("filtri");box.innerHTML=h;
+  Array.prototype.forEach.call(box.querySelectorAll("[data-f]"),function(b){
+    b.addEventListener("click",function(){state.filtro=b.getAttribute("data-f");
+      renderFiltri();renderLista()})})}
+
+function renderLista(){
+  var ps=tutteLePartite().filter(function(p){
+    return state.filtro==="tutte"||p.div===state.filtro});
+  ps.sort(function(a,b){return a.quando<b.quando?-1:1});
+  if(!ps.length){document.getElementById("listaBox").innerHTML=
+    '<div class="empty">Nessuna partita in questa selezione.</div>';return}
+  document.getElementById("listaBox").innerHTML=ps.map(function(p){
+    var a=analizza(p),sub,pill="";
+    if(a.mercato){
+      sub='quote di '+a.nBooks+' book · '+["1","X","2"].map(function(k){
+        return k+" "+fmt(a.best[k].price)}).join("  ");
+      pill=' <span class="pill ok">quote</span>';
+    }else if(a.mod){
+      sub='modello · 1 '+pct(a.mod.probs["1"],0)+'  X '+pct(a.mod.probs["X"],0)+
+          '  2 '+pct(a.mod.probs["2"],0);
+      if(!a.mod.noti)pill=' <span class="pill no">squadra ignota</span>';
+    }else sub='nessuna stima — inserisci le quote';
+    var d=new Date(p.quando);
+    var when=d.toLocaleDateString("it-IT",{weekday:"short",day:"numeric",month:"short"})+
+      "<br>"+d.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});
+    return'<button class="fx" data-id="'+esc(p.id)+'"><span class="fx-when">'+when+
+      '</span><span class="fx-t"><span class="fx-n">'+esc(p.casa)+' – '+esc(p.ospiti)+
+      pill+'</span><span class="fx-p">'+sub+'</span></span><span class="fx-go">&rsaquo;</span></button>'
+  }).join("");
+  Array.prototype.forEach.call(document.querySelectorAll("#listaBox [data-id]"),function(b){
+    b.addEventListener("click",function(){apri(b.getAttribute("data-id"))})})}
+
+/* ---- dettaglio partita ---- */
+function apri(id){state.aperta=id;
+  document.getElementById("listaView").hidden=true;
+  document.getElementById("dettaglioView").hidden=false;
+  if(!state.quote[id]||!state.quote[id].length)
+    state.quote[id]=[{book:"Goldbet",o1:"",oX:"",o2:""}];
+  renderDettaglio();window.scrollTo(0,0)}
+function chiudi(){state.aperta=null;
+  document.getElementById("dettaglioView").hidden=true;
+  document.getElementById("listaView").hidden=false;
+  renderLista();window.scrollTo(0,0)}
+
+function renderDettaglio(){
+  var p=trovaPartita(state.aperta);if(!p)return chiudi();
+  var a=analizza(p);
+  var d=new Date(p.quando);
+  var nomeDiv=(DATI.divisioni[p.div]&&DATI.divisioni[p.div].nome)||p.div;
+  document.getElementById("detHead").innerHTML=
+    '<div class="verdict neutral"><h3>'+esc(nomeDiv)+' · '+
+    d.toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long"})+'</h3>'+
+    '<div class="big" style="font-size:20px">'+esc(p.casa)+' – '+esc(p.ospiti)+'</div>'+
+    (a.mod?'<p>Il modello si aspetta <b class="num">'+fmt(a.mod.lam,2)+' – '+
+      fmt(a.mod.mu,2)+'</b>'+(a.mod.noti?'':' — attenzione: almeno una squadra non è nei dati storici, la stima vale poco')+'.</p>'
+      :'<p>Fuori dalla portata del modello: conta solo il consenso delle quote.</p>')+
+    '</div>';
+
+  var righe=state.quote[p.id]||[];
+  document.getElementById("bkBox").innerHTML=righe.map(function(r,i){
+    return'<div class="bk">'+
+      '<input type="text" id="bk-n-'+i+'" value="'+esc(r.book||"")+'" placeholder="book" data-i="'+i+'" data-k="book" autocomplete="off">'+
+      '<input type="number" id="bk-1-'+i+'" value="'+(r.o1||"")+'" step="0.01" min="1.01" inputmode="decimal" data-i="'+i+'" data-k="o1">'+
+      '<input type="number" id="bk-x-'+i+'" value="'+(r.oX||"")+'" step="0.01" min="1.01" inputmode="decimal" data-i="'+i+'" data-k="oX">'+
+      '<input type="number" id="bk-2-'+i+'" value="'+(r.o2||"")+'" step="0.01" min="1.01" inputmode="decimal" data-i="'+i+'" data-k="o2">'+
+      '<button class="rm" data-rm="'+i+'" aria-label="togli">×</button></div>'}).join("");
+  Array.prototype.forEach.call(document.querySelectorAll("#bkBox [data-i]"),function(el){
+    el.addEventListener("input",function(){
+      var i=+el.getAttribute("data-i"),k=el.getAttribute("data-k");
+      state.quote[p.id][i][k]=k==="book"?el.value:parseFloat(el.value)||"";
+      salvaQuote();aggiornaCalcoli()})});
+  Array.prototype.forEach.call(document.querySelectorAll("#bkBox [data-rm]"),function(b){
+    b.addEventListener("click",function(){
+      state.quote[p.id].splice(+b.getAttribute("data-rm"),1);salvaQuote();renderDettaglio()})});
+  aggiornaCalcoli()}
+
+function aggiornaCalcoli(){
+  var p=trovaPartita(state.aperta);if(!p)return;
+  var a=analizza(p),vb=document.getElementById("detVerdict");
+  var bp=document.getElementById("detBestPanel");
+  if(!a.mercato){
+    vb.innerHTML='<div class="verdict neutral"><h3>Servono le quote</h3>'+
+      '<p>Inserisci almeno un bookmaker per calcolare probabilità vere e valore.</p></div>';
+    bp.hidden=true;renderConfronto(a);return}
+  bp.hidden=false;
+  var migliore=null;
+  ["1","X","2"].forEach(function(k){
+    var ev=a.finale[k]*a.best[k].price-1;
+    if(!migliore||ev>migliore.ev)migliore={sel:k,ev:ev,price:a.best[k].price,book:a.best[k].book}});
+  var pol=policy(),ks=kellyStake(a.finale[migliore.sel],migliore.price,pol);
+  var cls=migliore.ev>=MIN_EV?"pos":(migliore.ev>=0?"neutral":"neg");
+  var msg;
+  if(migliore.ev<0)msg="Nessuna selezione ha valore: tutte sotto la quota equa.";
+  else if(migliore.ev<MIN_EV)msg="Valore sotto la soglia del 3%: dentro il margine d’errore.";
+  else if(!ks.stake)msg="Valore c’è, ma Kelly assegna meno della puntata minima di 2 €.";
+  else msg="Punta <b class=\"num\">"+fmt(ks.stake)+" €</b> su <b>"+migliore.sel+
+    "</b> a quota "+fmt(migliore.price)+" da <b>"+esc(migliore.book)+"</b>.";
+  // Con le quote battute a mano un errore di digitazione non produce un errore:
+  // produce una probabilita' plausibile e sbagliata. Se il modello e il mercato
+  // divergono oltre ogni ragionevolezza, quasi sempre e' una cifra sbagliata.
+  var allarme="";
+  if(a.mod&&a.mod.noti){
+    var div=0,quale="";
+    ["1","X","2"].forEach(function(k){
+      var d=Math.abs(a.mod.probs[k]-a.mercato[k]);
+      if(d>div){div=d;quale=k}});
+    if(div>0.20)allarme='<div class="warn"><b>Controlla le quote.</b> Sull\u2019esito '+
+      quale+' il modello dice '+pct(a.mod.probs[quale])+' e le quote '+pct(a.mercato[quale])+
+      ': '+(div*100).toFixed(0)+' punti di scarto. Succede per una notizia che il '+
+      'modello non conosce, ma molto piu\u2019 spesso per una cifra digitata male.</div>'}
+  vb.innerHTML='<div class="verdict '+cls+'"><h3>Miglior valore: '+migliore.sel+
+    ' &middot; margine dei book '+pct(a.margineMedio)+' (minimo '+pct(a.margineMin)+')</h3>'+
+    '<div class="big">'+sgn(migliore.ev)+'</div><p>'+msg+'</p></div>'+allarme;
+
+  document.getElementById("bestBox").innerHTML=["1","X","2"].map(function(k){
+    var ev=a.finale[k]*a.best[k].price-1,eq=1/a.finale[k];
+    var st=kellyStake(a.finale[k],a.best[k].price,pol);
+    return'<div class="best"><span class="best-s">'+k+'</span>'+
+      '<span class="best-d">probabilità <b class="num">'+pct(a.finale[k])+'</b> · '+
+      'quota equa <b class="q">'+fmt(eq)+'</b><br>miglior prezzo <b class="num">'+
+      fmt(a.best[k].price)+'</b> da '+esc(a.best[k].book)+
+      (st.stake?' · punta <b class="num">'+fmt(st.stake)+' €</b>':'')+'</span>'+
+      '<span class="best-e '+(ev>=0?"":"")+'" style="color:'+(ev>=MIN_EV?"var(--pos)":(ev<0?"var(--neg)":"inherit"))+'">'+
+      sgn(ev)+'<br><button class="btn ghost sm" data-add="'+k+'" style="margin-top:4px">Aggiungi</button></span></div>'
+  }).join("");
+  Array.prototype.forEach.call(document.querySelectorAll("#bestBox [data-add]"),function(b){
+    b.addEventListener("click",function(){
+      var k=b.getAttribute("data-add");
+      state.legs.push({nome:k+" — "+p.casa+" – "+p.ospiti,match:p.id,
+        price:a.best[k].price,p:a.finale[k],book:a.best[k].book,sel:k,
+        etichetta:p.casa+" – "+p.ospiti});
+      showTab("schedina")})});
+  renderConfronto(a)}
+
+function renderConfronto(a){
+  var box=document.getElementById("cmpBox");
+  if(!a.mod){box.innerHTML='<p class="note">Il modello non copre questa partita.</p>';return}
+  var h='<div class="tbl-scroll"><table><thead><tr><th>Esito</th><th>Modello</th>'+
+    (a.mercato?'<th>Quote</th><th>Usata</th>':'')+'</tr></thead><tbody>';
+  ["1","X","2"].forEach(function(k){
+    h+='<tr><td>'+k+'</td><td>'+pct(a.mod.probs[k])+'</td>'+
+      (a.mercato?'<td>'+pct(a.mercato[k])+'</td><td class="q">'+pct(a.finale[k])+'</td>':'')+'</tr>'});
+  box.innerHTML=h+'</tbody></table></div>'+
+    (a.mercato?'<p class="note">La colonna <b>usata</b> dipende dal peso del modello, '+
+      'che trovi nel Registro. È a zero perché su 33.300 partite ogni punto di peso '+
+      'dato al modello peggiora la previsione.</p>':'')}
+
+/* ---- schedina ---- */
 function bonusAt(n){
   if(n<BONUS_MINLEGS)return{v:0,est:false};
   if(BONUS_ANCHORS[n]!=null)return{v:BONUS_ANCHORS[n],est:false};
@@ -413,234 +613,101 @@ function bonusAt(n){
   ks.forEach(function(k){if(k<n)lo=k;if(hi===null&&k>n)hi=k});
   if(lo===null)return{v:0,est:true};
   if(hi===null)return{v:BONUS_ANCHORS[lo],est:true};
-  var a=Math.max(BONUS_ANCHORS[lo],0.1),b=Math.max(BONUS_ANCHORS[hi],0.1);
-  var w=(n-lo)/(hi-lo);
-  return{v:Math.exp(Math.log(a)+w*(Math.log(b)-Math.log(a))),est:true}}
+  var A=Math.max(BONUS_ANCHORS[lo],0.1),B=Math.max(BONUS_ANCHORS[hi],0.1),w=(n-lo)/(hi-lo);
+  return{v:Math.exp(Math.log(A)+w*(Math.log(B)-Math.log(A))),est:true}}
 function bonusNeeded(n){return(1/Math.pow(1-state.margin,n)-1)*100}
-function fmt(n,d){return n.toFixed(d==null?2:d)}
-function pct(n,d){return(n*100).toFixed(d==null?1:d)+"%"}
-function sgn(n,d){return(n>=0?"+":"")+(n*100).toFixed(d==null?1:d)+"%"}
-function esc(s){return String(s).replace(/[&<>"]/g,function(c){
-  return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
-
-/* ---------- analisi partita ---------- */
-function readMatch(){
-  var o1=parseFloat(document.getElementById("f1").value),
-      oX=parseFloat(document.getElementById("fX").value),
-      o2=parseFloat(document.getElementById("f2").value),
-      ov=parseFloat(document.getElementById("fOv").value),
-      un=parseFloat(document.getElementById("fUn").value);
-  if(!(o1>1&&oX>1&&o2>1))return null;
-  var prices={"1":o1,"X":oX,"2":o2};
-  var fair=shinDevig(prices), target={"1":fair["1"],"X":fair["X"],"2":fair["2"]};
-  var ouMargin=null;
-  if(ov>1&&un>1){var fo=shinDevig({o:ov,u:un});target.over25=fo.o;
-    ouMargin=marginOf({o:ov,u:un})}
-  var g=impliedGoals(target);
-  // quanto la ricostruzione si discosta dalle probabilita' di mercato: se lo
-  // scarto e' grosso, tutti i mercati derivati sotto ereditano quell'errore
-  var fit=outcome1x2(scoreMatrix(g.lambda,g.mu));
-  var scarto=Math.max(Math.abs(fit["1"]-fair["1"]),Math.abs(fit["X"]-fair["X"]),
-                      Math.abs(fit["2"]-fair["2"]));
-  return{prices:prices,fair:fair,goals:g,scarto:scarto,margin:marginOf(prices),ouMargin:ouMargin,
-    matrix:scoreMatrix(g.lambda,g.mu),
-    casa:document.getElementById("fCasa").value||"Casa",
-    ospiti:document.getElementById("fOspiti").value||"Ospiti"}}
-
-function marketRows(a){
-  var m=a.matrix,rows=[],p=outcome1x2(m);
-  rows.push(["Vittoria "+a.casa,p["1"],"1X2|1"]);
-  rows.push(["Pareggio",p["X"],"1X2|X"]);
-  rows.push(["Vittoria "+a.ospiti,p["2"],"1X2|2"]);
-  rows.push(["Doppia "+a.casa+" o pari",p["1"]+p["X"],"DC|1X"]);
-  rows.push(["Doppia pari o "+a.ospiti,p["X"]+p["2"],"DC|X2"]);
-  rows.push(["Doppia casa o ospiti",p["1"]+p["2"],"DC|12"]);
-  [1.5,2.5,3.5].forEach(function(l){var ou=overUnder(m,l);
-    rows.push(["Over "+l,ou.over,"OU|Over "+l]);
-    rows.push(["Under "+l,ou.under,"OU|Under "+l])});
-  var bb=btts(m);
-  rows.push(["Goal — segnano entrambe",bb.goal,"GG|Goal"]);
-  rows.push(["NoGoal",bb.nogoal,"GG|NoGoal"]);
-  // le linee a mezzo gol (±0.5) ripeterebbero esattamente l'1X2: inutili qui
-  [-1,-1.5,-2].forEach(function(l){var ah=asianHandicap(m,l);
-    rows.push(["Handicap "+a.casa+" ("+l+")",ah.casa,"AH|"+l])});
-  [1,1.5].forEach(function(l){var ah=asianHandicap(m,l);
-    rows.push(["Handicap "+a.ospiti+" (-"+l+")",ah.ospiti,"AH|"+l])});
-  return rows}
-// sotto il 2% o sopra il 98% la quota equa è dominata dall'errore di stima
-function usableRows(a){return marketRows(a).filter(function(r){
-  return r[1]>=0.02&&r[1]<=0.98})}
-
-function renderPartita(){
-  var a=readMatch(),vb=document.getElementById("verdictBox");
-  if(!a){vb.innerHTML='<div class="verdict neutral"><h3>Quote incomplete</h3>'+
-    '<p>Inserisci le tre quote 1X2 per vedere i conti.</p></div>';
-    document.getElementById("fairBox").innerHTML="";
-    document.getElementById("mktTable").innerHTML="";return}
-  window._a=a;
-  var g=a.goals;
-  vb.innerHTML='<div class="verdict neutral">'+
-    '<h3>Il banco si aspetta</h3>'+
-    '<div class="big">'+esc(a.casa)+' '+fmt(g.lambda,2)+' — '+fmt(g.mu,2)+' '+esc(a.ospiti)+'</div>'+
-    '<p>Gol attesi ricavati dalle sue stesse quote. Margine sull’1X2: '+
-    '<b class="num">'+pct(a.margin)+'</b>'+
-    (a.ouMargin!=null?', su Over/Under 2.5 <b class="num">'+pct(a.ouMargin)+'</b>':'')+
-    '.</p></div>';
-  var f=a.fair,h="";
-  [["1",a.casa],["X","Pareggio"],["2",a.ospiti]].forEach(function(kv){
-    h+='<div class="kv"><span>'+esc(kv[1])+' &mdash; probabilità vera '+pct(f[kv[0]])+
-       '</span><span>quota equa <b class="q">'+fmt(1/f[kv[0]])+'</b> · offerta '+
-       fmt(a.prices[kv[0]])+'</span></div>'});
-  document.getElementById("fairBox").innerHTML=h;
-
-  var rows=usableRows(a),t='<thead><tr><th>Mercato</th><th>Probabilità</th>'+
-    '<th>Quota equa</th><th>Serve almeno</th></tr></thead><tbody>';
-  rows.forEach(function(r){
-    t+='<tr><td>'+esc(r[0])+'</td><td>'+pct(r[1])+'</td><td class="q">'+fmt(1/r[1])+
-       '</td><td><b>'+fmt((1+MIN_EV)/r[1])+'</b></td></tr>'});
-  document.getElementById("mktTable").innerHTML=t+"</tbody>";
-
-  // il browser seleziona da solo la prima opzione, quindi il default d'esempio
-  // va imposto esplicitamente la prima volta
-  var sel=document.getElementById("fMkt"),prev=state.mktTouched?sel.value:"";
-  sel.innerHTML=rows.map(function(r){
-    return'<option value="'+esc(r[2])+'">'+esc(r[0])+'</option>'}).join("");
-  if(prev)sel.value=prev;
-  else{sel.value="GG|Goal";if(!sel.value&&sel.options.length)sel.selectedIndex=0}
-  renderCheck()}
-
-function currentSelection(){
-  var a=window._a;if(!a)return null;
-  var sel=document.getElementById("fMkt");
-  var rows=usableRows(a);
-  for(var i=0;i<rows.length;i++)if(rows[i][2]===sel.value)
-    return{nome:rows[i][0],p:rows[i][1],key:rows[i][2],a:a};
-  return null}
-
-function renderCheck(){
-  var box=document.getElementById("checkBox"),s=currentSelection();
-  var price=parseFloat(document.getElementById("fPrice").value);
-  if(!s||!(price>1)){box.innerHTML="";return}
-  var ev=s.p*price-1,k=kellyStake(s.p,price,policy());
-  var cls=ev>=MIN_EV?"pos":(ev>=0?"neutral":"neg");
-  var msg;
-  if(ev<0)msg="Sotto la quota equa di "+fmt(1/s.p)+". Il banco ci guadagna, non tu.";
-  else if(ev<MIN_EV)msg="Sopra la quota equa ma dentro il margine d’errore. Non basta.";
-  else if(k.stake===0)msg="Valore c’è, ma Kelly assegna meno della puntata minima di 2 €. Si salta.";
-  else msg="Punta <b class=\"num\">"+fmt(k.stake)+" €</b> — Kelly compresso su un capitale di "+
-    fmt(state.bankroll,0)+" €.";
-  box.innerHTML='<div class="verdict '+cls+'" style="margin-top:12px;margin-bottom:0">'+
-    '<h3>'+esc(s.nome)+' a quota '+fmt(price)+'</h3>'+
-    '<div class="big">'+sgn(ev)+'</div><p>'+msg+'</p></div>'}
-
-/* ---------- schedina ---------- */
 function slipStats(legs){
-  var q=1,p=1,byMatch={};
-  legs.forEach(function(l){q*=l.price;p*=l.p;byMatch[l.match]=(byMatch[l.match]||0)+1});
+  var q=1,p=1,byM={};
+  legs.forEach(function(l){q*=l.price;p*=l.p;byM[l.match]=(byM[l.match]||0)+1});
   var qual=legs.filter(function(l){return l.price>=state.minLeg}).length;
   var bn=bonusAt(qual),mult=1+bn.v/100;
-  return{quota:q,prob:p,bonus:bn.v,bonusEst:bn.est,mult:mult,eff:q*mult,
-    ev:p*q*mult-1,dup:Object.keys(byMatch).filter(function(k){return byMatch[k]>1}).length}}
-
-function bestSubset(legs,target){
-  var n=legs.length,best=null;
+  return{quota:q,prob:p,bonus:bn.v,bonusEst:bn.est,eff:q*mult,ev:p*q*mult-1,
+    dup:Object.keys(byM).filter(function(k){return byM[k]>1}).length}}
+function sottoinsiemi(legs,target){
+  var n=legs.length,byC={},best=null;
   for(var mask=1;mask<(1<<n);mask++){
-    var sub=[];for(var i=0;i<n;i++)if(mask&(1<<i))sub.push(legs[i]);
-    var seen={},dup=false;
-    for(var j=0;j<sub.length;j++){if(seen[sub[j].match]){dup=true;break}seen[sub[j].match]=1}
+    var sub=[],seen={},dup=false;
+    for(var i=0;i<n;i++)if(mask&(1<<i)){
+      if(seen[legs[i].match]){dup=true;break}seen[legs[i].match]=1;sub.push(legs[i])}
     if(dup)continue;
     var s=slipStats(sub);
     if(s.eff<target-1e-9)continue;
+    if(!byC[sub.length]||s.prob>byC[sub.length].s.prob)byC[sub.length]={sub:sub,s:s};
     if(!best||s.prob>best.s.prob)best={sub:sub,s:s}}
-  return best}
-
-function frontier(legs,target){
-  var n=legs.length,byCount={};
-  for(var mask=1;mask<(1<<n);mask++){
-    var sub=[];for(var i=0;i<n;i++)if(mask&(1<<i))sub.push(legs[i]);
-    var seen={},dup=false;
-    for(var j=0;j<sub.length;j++){if(seen[sub[j].match]){dup=true;break}seen[sub[j].match]=1}
-    if(dup)continue;
-    var s=slipStats(sub);
-    if(s.eff<target-1e-9)continue;
-    var c=sub.length;
-    if(!byCount[c]||s.prob>byCount[c].s.prob)byCount[c]={sub:sub,s:s}}
-  return byCount}
+  return{byC:byC,best:best}}
 
 function renderSchedina(){
   var box=document.getElementById("legsBox");
   if(!state.legs.length){
-    box.innerHTML='<div class="empty">Nessuna gamba. Analizza una partita e usa<br>'+
-      '&laquo;Aggiungi alla schedina&raquo;.</div>';
-    document.getElementById("slipVerdict").innerHTML="";
-    document.getElementById("targetBox").innerHTML="";
-    document.getElementById("frontTable").innerHTML="";
-    document.getElementById("frontNote").textContent="";return}
+    box.innerHTML='<div class="empty">Nessuna gamba. Apri una partita,<br>'+
+      'inserisci le quote e aggiungi una selezione.</div>';
+    ["slipVerdict","targetBox","frontTable"].forEach(function(id){
+      document.getElementById(id).innerHTML=""});
+    document.getElementById("frontNote").textContent="";
+    document.getElementById("copyPanel").hidden=true;return}
   box.innerHTML=state.legs.map(function(l,i){
     var ev=l.p*l.price-1;
     return'<div class="leg"><div><div class="leg-m">'+esc(l.nome)+'</div>'+
-      '<div class="leg-s">'+esc(l.match)+' &middot; quota <b class="num">'+fmt(l.price)+
-      '</b> &middot; <span class="num">'+pct(l.p)+'</span> &middot; '+
-      '<span class="'+(ev>=0?"":"")+'">EV <b class="num">'+sgn(ev)+'</b></span></div></div>'+
+      '<div class="leg-s">quota <b class="num">'+fmt(l.price)+'</b> da '+esc(l.book||"—")+
+      ' · <span class="num">'+pct(l.p)+'</span> · EV <b class="num">'+sgn(ev)+'</b></div></div>'+
       '<button class="btn ghost sm" data-rm="'+i+'">Togli</button></div>'}).join("");
   Array.prototype.forEach.call(box.querySelectorAll("[data-rm]"),function(b){
     b.addEventListener("click",function(){
-      state.legs.splice(parseInt(b.getAttribute("data-rm"),10),1);renderSchedina()})});
+      state.legs.splice(+b.getAttribute("data-rm"),1);renderSchedina()})});
 
   var s=slipStats(state.legs),stake=parseFloat(document.getElementById("fStake").value)||2;
-  var cls=s.ev>=0?"pos":"neg";
-  var neg=state.legs.filter(function(l){return l.p*l.price-1<0}).length;
-  var warn="";
+  var neg=state.legs.filter(function(l){return l.p*l.price-1<0}).length,warn="";
   if(state.legs.length>1){
-    var singlesEV=state.legs.reduce(function(a,l){return a+(stake/state.legs.length)*(l.p*l.price-1)},0);
-    if(singlesEV>stake*s.ev)warn+='<div class="warn">Giocate come singole le stesse '+
-      'selezioni rendono <b class="num">'+fmt(singlesEV)+' €</b> attesi contro '+
-      '<b class="num">'+fmt(stake*s.ev)+' €</b> della multipla.</div>';
+    var sing=state.legs.reduce(function(a,l){return a+(stake/state.legs.length)*(l.p*l.price-1)},0);
+    if(sing>stake*s.ev)warn+='<div class="warn">Giocate come singole le stesse selezioni '+
+      'rendono <b class="num">'+fmt(sing)+' €</b> attesi contro <b class="num">'+
+      fmt(stake*s.ev)+' €</b> della multipla.</div>';
     if(neg)warn+='<div class="warn">'+neg+' gamb'+(neg===1?"a":"e")+' su '+state.legs.length+
       ' ha valore atteso negativo da sola: trascina giù tutta la multipla.</div>';
     if(s.dup)warn+='<div class="warn">Due gambe sulla stessa partita sono correlate: '+
-      'quasi nessun banco le accetta in multipla, e qui la probabilità è '+
-      'sottostimata perché calcolata come se fossero indipendenti.</div>'}
-  if(s.prob<0.10&&state.legs.length>1)warn+='<div class="warn">Probabilità di vincita '+
-    pct(s.prob)+': in media una giocata vincente ogni <b class="num">'+
-    Math.round(1/s.prob)+'</b> tentativi.</div>';
-  document.getElementById("slipVerdict").innerHTML='<div class="verdict '+cls+'">'+
-    '<h3>'+state.legs.length+' gamb'+(state.legs.length===1?"a":"e")+
-    ' &middot; quota '+fmt(s.eff)+(s.bonus>0?' (bonus +'+fmt(s.bonus,0)+'%'+(s.bonusEst?'~':'')+')':'')+
-    '</h3><div class="big">'+sgn(s.ev)+'</div>'+
-    '<p>Vince <b class="num">'+pct(s.prob)+'</b> delle volte — una ogni '+
-    '<b class="num">'+fmt(1/s.prob,1)+'</b> tentativi. Con '+fmt(stake)+' € punti, '+
-    'incassi <b class="num">'+fmt(stake*s.eff)+' €</b>.</p></div>'+warn;
+      'quasi nessun banco le accetta in multipla, e la probabilità qui è sottostimata.</div>';
+    if(s.prob<0.10)warn+='<div class="warn">Probabilità di vincita '+pct(s.prob)+
+      ': in media una vincente ogni <b class="num">'+Math.round(1/s.prob)+'</b> tentativi.</div>'}
+  document.getElementById("slipVerdict").innerHTML='<div class="verdict '+(s.ev>=0?"pos":"neg")+'">'+
+    '<h3>'+state.legs.length+' gamb'+(state.legs.length===1?"a":"e")+' &middot; quota '+
+    fmt(s.eff)+(s.bonus>0?' (bonus +'+fmt(s.bonus,0)+'%'+(s.bonusEst?'~':'')+')':'')+'</h3>'+
+    '<div class="big">'+sgn(s.ev)+'</div><p>Vince <b class="num">'+pct(s.prob)+
+    '</b> delle volte — una ogni <b class="num">'+fmt(1/s.prob,1)+'</b> tentativi. '+
+    'Con '+fmt(stake)+' € incassi <b class="num">'+fmt(stake*s.eff)+' €</b>.</p></div>'+warn;
 
   var target=parseFloat(document.getElementById("fTarget").value)||5;
-  var best=bestSubset(state.legs,target),tb=document.getElementById("targetBox");
-  if(!best){tb.innerHTML='<p class="note">Con queste gambe non si arriva a quota '+
-    fmt(target)+'. Aggiungine, oppure scegli selezioni a quota più alta.</p>'}
-  else{
-    tb.innerHTML='<p class="note">La combinazione più probabile che arriva a quota '+
-      fmt(target)+' usa <b>'+best.sub.length+' gamb'+(best.sub.length===1?"a":"e")+'</b>: '+
-      best.sub.map(function(l){return esc(l.nome)}).join(" + ")+'. Quota '+
-      fmt(best.s.eff)+', vince il <b class="num">'+pct(best.s.prob)+
-      '</b> delle volte, valore atteso <b class="num">'+sgn(best.s.ev)+'</b>.</p>'}
+  var r=sottoinsiemi(state.legs,target),tb=document.getElementById("targetBox");
+  tb.innerHTML=r.best?'<p class="note">La combinazione più probabile che arriva a quota '+
+    fmt(target)+' usa <b>'+r.best.sub.length+' gamb'+(r.best.sub.length===1?"a":"e")+'</b>: '+
+    r.best.sub.map(function(l){return esc(l.nome)}).join(" + ")+'. Quota '+fmt(r.best.s.eff)+
+    ', vince il <b class="num">'+pct(r.best.s.prob)+'</b> delle volte, EV <b class="num">'+
+    sgn(r.best.s.ev)+'</b>.</p>'
+    :'<p class="note">Con queste gambe non si arriva a quota '+fmt(target)+'.</p>';
 
-  var fr=frontier(state.legs,target),ks=Object.keys(fr).map(Number).sort(function(a,b){return a-b});
+  var ks=Object.keys(r.byC).map(Number).sort(function(a,b){return a-b});
   if(!ks.length){document.getElementById("frontTable").innerHTML="";
-    document.getElementById("frontNote").textContent=
-      "Servono più gambe per raggiungere l’obiettivo.";}
+    document.getElementById("frontNote").textContent="Servono più gambe per l’obiettivo."}
   else{
-    var t='<thead><tr><th>Gambe</th><th>Quota</th><th>P(vincita)</th>'+
-      '<th>1 volta su</th><th>EV</th></tr></thead><tbody>';
-    var bestK=ks.reduce(function(a,b){return fr[a].s.prob>=fr[b].s.prob?a:b});
-    ks.forEach(function(k){var s2=fr[k].s;
-      t+='<tr'+(k===bestK?' class="hl"':'')+'><td>'+k+'</td><td class="q">'+fmt(s2.eff)+
-        '</td><td>'+pct(s2.prob)+'</td><td>'+fmt(1/s2.prob,1)+'</td><td class="'+
-        (s2.ev>=0?"pos":"neg")+'">'+sgn(s2.ev)+'</td></tr>'});
+    var bestK=ks.reduce(function(a,b){return r.byC[a].s.prob>=r.byC[b].s.prob?a:b});
+    var t='<thead><tr><th>Gambe</th><th>Quota</th><th>P(vincita)</th><th>1 su</th><th>EV</th></tr></thead><tbody>';
+    ks.forEach(function(k){var x=r.byC[k].s;
+      t+='<tr'+(k===bestK?' class="hl"':'')+'><td>'+k+'</td><td class="q">'+fmt(x.eff)+
+        '</td><td>'+pct(x.prob)+'</td><td>'+fmt(1/x.prob,1)+'</td><td class="'+
+        (x.ev>=0?"pos":"neg")+'">'+sgn(x.ev)+'</td></tr>'});
     document.getElementById("frontTable").innerHTML=t+"</tbody>";
-    document.getElementById("frontNote").innerHTML="Stessa vincita in ogni riga: "+
-      "cambia solo quanto è probabile incassarla. La riga evidenziata è la "+
-      "più probabile.";}}
+    document.getElementById("frontNote").innerHTML="Stessa vincita in ogni riga: cambia "+
+      "solo quanto è probabile incassarla. La riga evidenziata è la più probabile."}
 
-/* ---------- bonus ---------- */
+  var sub=r.best?r.best.sub:state.legs,ss=slipStats(sub);
+  document.getElementById("copyPanel").hidden=false;
+  document.getElementById("copyBox").textContent=
+    sub.map(function(l,i){return(i+1)+". "+l.etichetta+"  →  "+l.sel+
+      "   quota "+fmt(l.price)+"  ("+l.book+")"}).join("\n")+
+    "\n\nquota totale "+fmt(ss.eff)+(ss.bonus>0?"  (bonus +"+fmt(ss.bonus,0)+"%)":"")+
+    "\npuntata "+fmt(stake)+" €   vincita "+fmt(stake*ss.eff)+" €"+
+    "\nprobabilità "+pct(ss.prob)+"   valore atteso "+sgn(ss.ev)}
+
+/* ---- bonus ---- */
 function renderBonus(){
   var t='<thead><tr><th>Gambe</th><th>Offerto</th><th>Serve</th><th>Esito</th></tr></thead><tbody>';
   for(var n=5;n<=30;n+=(n<12?1:(n<20?2:5))){
@@ -649,126 +716,105 @@ function renderBonus(){
       '</td><td>+'+fmt(need,0)+'%</td><td class="'+(ok?"pos":"neg")+'">'+
       (ok?"conviene":"non basta")+'</td></tr>'}
   document.getElementById("bonusTable").innerHTML=t+"</tbody>";
-
-  var p='<thead><tr><th>Vincita ogni</th><th>Gambe max</th><th>Quota</th>'+
-    '<th>Bonus serve</th></tr></thead><tbody>',first=null;
+  var p='<thead><tr><th>Vincita ogni</th><th>Gambe max</th><th>Quota</th><th>Serve</th></tr></thead><tbody>',first=null;
   [10,25,50,100,250,1000].forEach(function(ogni){
     var n=Math.floor(Math.log(1/ogni)/Math.log((1-state.margin)/state.minLeg));
-    if(n<1)return;
-    if(ogni===50)first=n;
+    if(n<1)return; if(ogni===50)first=n;
     p+='<tr><td>'+ogni+' tentativi</td><td>'+n+'</td><td class="q">'+
       fmt(Math.pow(state.minLeg,n),1)+'</td><td>+'+fmt(bonusNeeded(n),0)+'%</td></tr>'});
   document.getElementById("practTable").innerHTML=p+"</tbody>";
   if(first){var off=bonusAt(first);
-    document.getElementById("practNote").innerHTML="A "+first+" gambe — una vincita "+
-      "ogni cinquanta tentativi, circa tre settimane di gioco — servirebbe "+
-      "<b class=\"num\">+"+fmt(bonusNeeded(first),0)+"%</b> e l’offerta è intorno a "+
-      "<b class=\"num\">+"+fmt(off.v,0)+"%</b>. Il divario si chiude solo verso le trenta "+
-      "gambe, dove però la vincita non arriva più."}}
+    document.getElementById("practNote").innerHTML="A "+first+" gambe — una vincita ogni "+
+      "cinquanta tentativi, circa tre settimane — servirebbe <b class=\"num\">+"+
+      fmt(bonusNeeded(first),0)+"%</b> e l’offerta è intorno a <b class=\"num\">+"+
+      fmt(off.v,0)+"%</b>. Il divario si chiude solo verso le trenta gambe, dove però "+
+      "la vincita non arriva più."}}
 
-/* ---------- registro ---------- */
-function weekKey(d){var t=new Date(d);var day=(t.getDay()+6)%7;
+/* ---- registro ---- */
+function weekKey(d){var t=new Date(d),day=(t.getDay()+6)%7;
   t.setDate(t.getDate()-day);return t.toISOString().slice(0,10)}
 function renderRegistro(){
   var open=state.log.filter(function(g){return g.esito==="aperta"});
   var closed=state.log.filter(function(g){return g.esito!=="aperta"});
-  var staked=closed.reduce(function(a,g){return a+g.stake},0);
+  var st=closed.reduce(function(a,g){return a+g.stake},0);
   var ret=closed.reduce(function(a,g){return a+(g.esito==="vinta"?g.stake*g.quota:0)},0);
-  var promised=closed.reduce(function(a,g){return a+g.stake*g.ev},0);
-  var s='<div class="kv"><span>Giocate chiuse</span><span>'+closed.length+
-    ' &middot; '+open.length+' aperte</span></div>'+
-    '<div class="kv"><span>Puntato</span><span>'+fmt(staked)+' €</span></div>'+
+  var prom=closed.reduce(function(a,g){return a+g.stake*g.ev},0);
+  var s='<div class="kv"><span>Giocate chiuse</span><span>'+closed.length+' · '+open.length+' aperte</span></div>'+
+    '<div class="kv"><span>Puntato</span><span>'+fmt(st)+' €</span></div>'+
     '<div class="kv"><span>Incassato</span><span>'+fmt(ret)+' €</span></div>'+
-    '<div class="kv"><span>Profitto</span><span class="'+(ret-staked>=0?"":"")+'">'+
-    (ret-staked>=0?"+":"")+fmt(ret-staked)+' €</span></div>';
-  if(staked>0)s+='<div class="kv"><span>Rendimento reale</span><span>'+
-    sgn((ret-staked)/staked)+'</span></div>'+
-    '<div class="kv"><span>Rendimento promesso dall’app</span><span>'+
-    sgn(promised/staked)+'</span></div>';
-  document.getElementById("statsBox").innerHTML=s+
-    (staked>0?'<p class="note">Lo scarto fra i due è la misura di quanto l’app '+
-     'sovrastima sé stessa. Serve una cinquantina di giocate perché significhi qualcosa.</p>':'');
-
+    '<div class="kv"><span>Profitto</span><span>'+(ret-st>=0?"+":"")+fmt(ret-st)+' €</span></div>';
+  if(st>0)s+='<div class="kv"><span>Rendimento reale</span><span>'+sgn((ret-st)/st)+'</span></div>'+
+    '<div class="kv"><span>Promesso dall’app</span><span>'+sgn(prom/st)+'</span></div>';
+  document.getElementById("statsBox").innerHTML=s+(st>0?
+    '<p class="note">Lo scarto fra i due è quanto l’app sovrastima sé stessa. '+
+    'Serve una cinquantina di giocate perché significhi qualcosa.</p>':'');
   if(!state.log.length){document.getElementById("logBox").innerHTML=
     '<div class="empty">Nessuna giocata registrata.</div>';return}
-  document.getElementById("logBox").innerHTML=state.log.slice().reverse()
-    .map(function(g){
-      var pill=g.esito==="vinta"?'<span class="pill ok">vinta</span>':
-        g.esito==="persa"?'<span class="pill no">persa</span>':'<span class="pill">aperta</span>';
-      return'<div class="leg"><div><div class="leg-m">'+esc(g.titolo)+' '+pill+'</div>'+
-        '<div class="leg-s">'+g.data+' &middot; '+fmt(g.stake)+' € a quota '+
-        '<b class="num">'+fmt(g.quota)+'</b> &middot; EV '+sgn(g.ev)+'</div></div>'+
-        (g.esito==="aperta"?'<div style="display:flex;gap:5px">'+
-          '<button class="btn ghost sm" data-win="'+g.id+'">Vinta</button>'+
-          '<button class="btn ghost sm" data-lose="'+g.id+'">Persa</button></div>':
-          '<button class="btn ghost sm" data-del="'+g.id+'">Togli</button>')+'</div>'}).join("");
+  document.getElementById("logBox").innerHTML=state.log.slice().reverse().map(function(g){
+    var pill=g.esito==="vinta"?'<span class="pill ok">vinta</span>':
+      g.esito==="persa"?'<span class="pill no">persa</span>':'<span class="pill">aperta</span>';
+    return'<div class="leg"><div><div class="leg-m">'+esc(g.titolo)+' '+pill+'</div>'+
+      '<div class="leg-s">'+g.data+' · '+fmt(g.stake)+' € a quota <b class="num">'+
+      fmt(g.quota)+'</b> · EV '+sgn(g.ev)+'</div></div>'+
+      (g.esito==="aperta"?'<div style="display:flex;gap:5px">'+
+        '<button class="btn ghost sm" data-win="'+g.id+'">Vinta</button>'+
+        '<button class="btn ghost sm" data-lose="'+g.id+'">Persa</button></div>':
+        '<button class="btn ghost sm" data-del="'+g.id+'">Togli</button>')+'</div>'}).join("");
   var lb=document.getElementById("logBox");
   Array.prototype.forEach.call(lb.querySelectorAll("[data-win]"),function(b){
     b.addEventListener("click",function(){settle(b.getAttribute("data-win"),"vinta")})});
   Array.prototype.forEach.call(lb.querySelectorAll("[data-lose]"),function(b){
     b.addEventListener("click",function(){settle(b.getAttribute("data-lose"),"persa")})});
   Array.prototype.forEach.call(lb.querySelectorAll("[data-del]"),function(b){
-    b.addEventListener("click",function(){removeBet(b.getAttribute("data-del"))})})}
-
+    b.addEventListener("click",function(){rimuovi(b.getAttribute("data-del"))})})}
 function renderBudget(){
   var wk=weekKey(new Date());
-  var spent=state.log.filter(function(g){return weekKey(g.data)===wk})
+  var sp=state.log.filter(function(g){return weekKey(g.data)===wk})
     .reduce(function(a,g){return a+g.stake},0);
-  document.getElementById("budgetLabel").innerHTML='settimana <b>'+fmt(spent)+
-    '</b> / '+fmt(state.weekly,0)+' €';
+  document.getElementById("budgetLabel").innerHTML='settimana <b>'+fmt(sp)+'</b> / '+fmt(state.weekly,0)+' €';
   document.getElementById("budgetBar").style.width=
-    Math.min(100,state.weekly?spent/state.weekly*100:0)+"%"}
+    Math.min(100,state.weekly?sp/state.weekly*100:0)+"%"}
 
-/* ---------- persistenza ---------- */
+/* ---- persistenza ---- */
 function lsGet(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
-function saveSettings(){
-  var s={weekly:state.weekly,bankroll:state.bankroll,margin:state.margin,minLeg:state.minLeg};
-  lsSet("qv.settings",s);
-  if(db)db.doc("impostazioni/mie").set(s).catch(function(){})}
-function persistBet(g){
-  lsSet("qv.log",state.log);
+function salvaQuote(){lsSet("qv2.quote",state.quote);
+  if(db)db.doc("quote/correnti").set({v:state.quote}).catch(function(){})}
+function salvaImp(){var s={weekly:state.weekly,bankroll:state.bankroll,
+  margin:state.margin,minLeg:state.minLeg,w:state.w};
+  lsSet("qv2.imp",s);if(db)db.doc("impostazioni/mie").set(s).catch(function(){})}
+function salvaGiocata(g){lsSet("qv2.log",state.log);
   if(db)db.doc("giocate/"+g.id).set(g).catch(function(){})}
-function persistAll(){
-  lsSet("qv.log",state.log);
-  if(db)state.log.forEach(function(g){db.doc("giocate/"+g.id).set(g).catch(function(){})})}
-
-function settle(id,esito){
-  state.log.forEach(function(g){if(g.id===id){g.esito=esito;persistBet(g)}});
+function settle(id,e){state.log.forEach(function(g){if(g.id===id){g.esito=e;salvaGiocata(g)}});
   renderRegistro();renderBudget()}
-function removeBet(id){
-  state.log=state.log.filter(function(g){return g.id!==id});
-  lsSet("qv.log",state.log);
-  if(db)db.doc("giocate/"+id).delete().catch(function(){});
+function rimuovi(id){state.log=state.log.filter(function(g){return g.id!==id});
+  lsSet("qv2.log",state.log);if(db)db.doc("giocate/"+id).delete().catch(function(){});
   renderRegistro();renderBudget()}
 
-/* ---------- eventi ---------- */
-function showTab(name){
-  ["partita","schedina","bonus","registro"].forEach(function(t){
-    var btn=document.getElementById("tab-"+t),pan=document.getElementById("p-"+t);
-    var on=t===name;btn.setAttribute("aria-selected",on?"true":"false");pan.hidden=!on});
-  if(name==="schedina")renderSchedina();
-  if(name==="bonus")renderBonus();
-  if(name==="registro")renderRegistro();
-  lsSet("qv.tab",name)}
-
-["partita","schedina","bonus","registro"].forEach(function(t){
-  document.getElementById("tab-"+t).addEventListener("click",function(){showTab(t)})});
-
-["f1","fX","f2","fOv","fUn","fCasa","fOspiti"].forEach(function(id){
-  document.getElementById(id).addEventListener("input",function(){
-    if(!state.edited){state.edited=true;document.getElementById("exBadge").hidden=true}
-    renderPartita()})});
-document.getElementById("fMkt").addEventListener("change",function(){
-  state.mktTouched=true;renderCheck()});
-document.getElementById("fPrice").addEventListener("input",renderCheck);
-
-document.getElementById("btnAdd").addEventListener("click",function(){
-  var s=currentSelection(),price=parseFloat(document.getElementById("fPrice").value);
-  if(!s||!(price>1))return;
-  state.legs.push({nome:s.nome,match:s.a.casa+" - "+s.a.ospiti,price:price,p:s.p,key:s.key});
-  showTab("schedina")});
-
+/* ---- eventi ---- */
+var TABS=["partite","schedina","bonus","registro"];
+function showTab(n){TABS.forEach(function(t){
+  document.getElementById("tab-"+t).setAttribute("aria-selected",t===n?"true":"false");
+  document.getElementById("p-"+t).hidden=t!==n});
+  if(n==="schedina")renderSchedina();
+  if(n==="bonus")renderBonus();
+  if(n==="registro")renderRegistro();
+  lsSet("qv2.tab",n);window.scrollTo(0,0)}
+TABS.forEach(function(t){document.getElementById("tab-"+t)
+  .addEventListener("click",function(){showTab(t)})});
+document.getElementById("btnBack").addEventListener("click",chiudi);
+document.getElementById("btnAddBook").addEventListener("click",function(){
+  state.quote[state.aperta].push({book:"",o1:"",oX:"",o2:""});renderDettaglio()});
+document.getElementById("btnNuova").addEventListener("click",function(){
+  var c=document.getElementById("nvCasa").value.trim(),
+      o=document.getElementById("nvOspiti").value.trim();
+  if(!c||!o)return;
+  var id="extra-"+Date.now();
+  state.extra.push({id:id,div:"—",quando:new Date().toISOString().slice(0,16),
+    casa:c,ospiti:o,noti:false});
+  lsSet("qv2.extra",state.extra);
+  document.getElementById("nvCasa").value="";document.getElementById("nvOspiti").value="";
+  renderFiltri();apri(id)});
 ["fTarget","fStake"].forEach(function(id){
   document.getElementById(id).addEventListener("input",renderSchedina)});
 document.getElementById("btnClear").addEventListener("click",function(){
@@ -779,59 +825,63 @@ document.getElementById("btnRegister").addEventListener("click",function(){
   var g={id:"b"+Date.now()+Math.floor(Math.random()*1000),
     data:new Date().toISOString().slice(0,10),
     titolo:state.legs.length===1?state.legs[0].nome:state.legs.length+" gambe",
-    legs:state.legs.map(function(l){return{nome:l.nome,match:l.match,price:l.price,p:l.p}}),
-    quota:s.eff,prob:s.prob,ev:s.ev,stake:stake,esito:"aperta"};
-  state.log.push(g);persistBet(g);state.legs=[];
+    quota:s.eff,prob:s.prob,ev:s.ev,stake:stake,esito:"aperta",
+    legs:state.legs.map(function(l){return{nome:l.nome,price:l.price,p:l.p,book:l.book}})};
+  state.log.push(g);salvaGiocata(g);state.legs=[];
   renderSchedina();renderBudget();showTab("registro")});
-
 document.getElementById("fMargin").addEventListener("change",function(){
-  state.margin=parseFloat(this.value);saveSettings();renderBonus()});
+  state.margin=parseFloat(this.value);salvaImp();renderBonus()});
 document.getElementById("fMinLeg").addEventListener("input",function(){
-  var v=parseFloat(this.value);if(v>1){state.minLeg=v;saveSettings();renderBonus();
-    renderSchedina()}});
+  var v=parseFloat(this.value);if(v>1){state.minLeg=v;salvaImp();renderBonus();renderSchedina()}});
 document.getElementById("fWeekly").addEventListener("input",function(){
-  var v=parseFloat(this.value);if(v>0){state.weekly=v;saveSettings();renderBudget()}});
+  var v=parseFloat(this.value);if(v>0){state.weekly=v;salvaImp();renderBudget()}});
 document.getElementById("fBankroll").addEventListener("input",function(){
-  var v=parseFloat(this.value);if(v>0){state.bankroll=v;saveSettings();renderCheck()}});
+  var v=parseFloat(this.value);if(v>0){state.bankroll=v;salvaImp()}});
+document.getElementById("fW").addEventListener("input",function(){
+  state.w=(+this.value)/100;etichettaPeso();salvaImp();
+  if(state.aperta)aggiornaCalcoli()});
+function etichettaPeso(){
+  var w=state.w;
+  document.getElementById("wLabel").innerHTML=w===0?
+    "<b>Solo quote</b> — l’errore minimo misurato (RPS 0,2029)":
+    (w===1?"<b>Solo modello</b> — l’errore massimo misurato (RPS 0,2082)":
+     "<b>"+Math.round(w*100)+"% modello</b>, "+Math.round((1-w)*100)+"% quote")}
 
-/* ---------- avvio ---------- */
-function boot(){
-  var s=lsGet("qv.settings",null);
-  if(s){state.weekly=s.weekly||30;state.bankroll=s.bankroll||1200;
-    state.margin=s.margin||0.04;state.minLeg=s.minLeg||1.25;
+/* ---- avvio ---- */
+(function boot(){
+  var imp=lsGet("qv2.imp",null);
+  if(imp){state.weekly=imp.weekly||30;state.bankroll=imp.bankroll||1200;
+    state.margin=imp.margin||0.04;state.minLeg=imp.minLeg||1.25;state.w=imp.w||0;
     document.getElementById("fWeekly").value=state.weekly;
     document.getElementById("fBankroll").value=state.bankroll;
     document.getElementById("fMargin").value=String(state.margin);
-    document.getElementById("fMinLeg").value=state.minLeg}
-  state.log=lsGet("qv.log",[]);
-  renderPartita();renderBudget();
-  var t=lsGet("qv.tab","partita");
-  if(["partita","schedina","bonus","registro"].indexOf(t)>=0&&t!=="partita")showTab(t);
-}
-boot();
+    document.getElementById("fMinLeg").value=state.minLeg;
+    document.getElementById("fW").value=Math.round(state.w*100)}
+  state.log=lsGet("qv2.log",[]);
+  state.quote=lsGet("qv2.quote",{});
+  state.extra=lsGet("qv2.extra",[]);
+  etichettaPeso();renderFiltri();renderLista();renderBudget();
+  var g=new Date(DATI.generato);
+  document.getElementById("stamp").textContent="Rating e calendario aggiornati al "+
+    g.toLocaleDateString("it-IT",{day:"numeric",month:"long",year:"numeric"})+
+    " · "+Object.keys(DATI.squadre).length+" squadre in 11 divisioni";
+  var t=lsGet("qv2.tab","partite");
+  if(TABS.indexOf(t)>=0&&t!=="partite")showTab(t);
+})();
 
-/* le giocate vivono anche fuori dal browser, così non si perdono cambiando
-   dispositivo e posso rileggerle per calcolare il rendimento vero */
 if(window.claude&&window.claude.use){
   window.claude.use("db").then(function(d){
     if(!d)return;db=d;
     document.getElementById("storeNote").innerHTML=
-      '<p class="note">Le giocate sono salvate fuori dal browser: le ritrovi anche '+
-      'cambiando dispositivo.</p>';
+      '<p class="note">Giocate e quote sono salvate fuori dal browser: le ritrovi '+
+      'anche cambiando dispositivo.</p>';
     d.collection("giocate").get().then(function(docs){
       var arr=(docs||[]).map(function(x){return x.data||x}).filter(function(x){return x&&x.id});
-      if(arr.length){
-        var known={};state.log.forEach(function(g){known[g.id]=1});
-        arr.forEach(function(g){if(!known[g.id])state.log.push(g)});
+      var noti={};state.log.forEach(function(g){noti[g.id]=1});
+      var nuovi=arr.filter(function(g){return !noti[g.id]});
+      if(nuovi.length){state.log=state.log.concat(nuovi);
         state.log.sort(function(a,b){return a.id<b.id?-1:1});
-        lsSet("qv.log",state.log);renderRegistro();renderBudget()}
-      else persistAll();
-    }).catch(function(){});
-    d.doc("impostazioni/mie").get().then(function(doc){
-      var v=doc&&(doc.data||doc);
-      if(v&&v.weekly){state.weekly=v.weekly;state.bankroll=v.bankroll||state.bankroll;
-        document.getElementById("fWeekly").value=state.weekly;
-        document.getElementById("fBankroll").value=state.bankroll;renderBudget()}
+        lsSet("qv2.log",state.log);renderRegistro();renderBudget()}
     }).catch(function(){});
   }).catch(function(){});
 }
