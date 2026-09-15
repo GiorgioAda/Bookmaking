@@ -175,6 +175,12 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
 .back{font-family:var(--disp);font-size:11.5px;font-weight:600;color:var(--ink-soft);
   background:none;border:0;padding:0 0 10px;cursor:pointer;letter-spacing:.03em}
 .back:focus-visible{outline:2px solid var(--accent)}
+.fx-wrap{display:flex;align-items:stretch;gap:2px;border-bottom:1px solid var(--rule)}
+.fx-wrap:last-child{border-bottom:0}
+.fx-wrap.sel{background:var(--accent-bg)}
+.fx-wrap .fx{border-bottom:0;flex:1}
+.fx-ck{display:flex;align-items:center;padding-right:4px}
+.fx-ck input{width:20px;height:20px;accent-color:var(--accent)}
 .mkt-row td{padding:12px 0 5px;border-bottom:0}
 .mkt-row+tr td{border-top:1px solid var(--rule)}
 .stamp{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:14px}
@@ -280,6 +286,10 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
 <section id="p-schedina" role="tabpanel" aria-labelledby="tab-schedina" hidden>
   <p class="lede">Le quote si moltiplicano, ma con loro si moltiplicano i margini
   del banco. Qui vedi cosa costa davvero ogni gamba in più.</p>
+  <div class="panel">
+    <div class="eyebrow">Genera dalla selezione</div>
+    <div id="genBox"></div>
+  </div>
   <div class="panel"><div class="eyebrow">Gambe</div><div id="legsBox"></div></div>
   <div id="slipVerdict"></div>
   <div class="panel">
@@ -521,6 +531,62 @@ function margineMercato(prezzi,mkt){
   sel.forEach(function(s){tot+=1/prezzi[s]});
   return tot/mkt.somma-1}
 
+/* ---- combo e multigol ----
+   Un bookmaker vende "1 + Over 2.5" come un esito solo. La tentazione e'
+   prezzarlo moltiplicando P(1) per P(Over 2.5), ed e' sbagliata: chi vince in
+   casa segna piu' gol, quindi i due eventi vanno d'accordo e il prodotto
+   sottostima. Avendo la distribuzione congiunta dei punteggi la si interseca e
+   basta.
+
+   A differenza dei mercati principali, una combo e' venduta da sola: non
+   esiste l'esito complementare, quindi non c'e' margine da togliere. L'unico
+   confronto possibile e' fra la quota offerta e la quota equa che la matrice
+   implica — ed e' proprio nelle combo che i banchi caricano di piu'. */
+function maskEsito(x,y,e){
+  if(e==="1")return x>y; if(e==="X")return x===y; if(e==="2")return x<y;
+  if(e==="1X")return x>=y; if(e==="12")return x!==y; if(e==="X2")return x<=y;
+  return false}
+function probCombo(m,test){
+  var s=0;
+  for(var x=0;x<m.length;x++)for(var y=0;y<m.length;y++)
+    if(test(x,y))s+=m[x][y];
+  return s}
+
+var COMBO=[];
+(function(){
+  function agg(id,nome,gruppo,test){COMBO.push({id:id,nome:nome,gruppo:gruppo,test:test})}
+  // esito + totale gol
+  [["1","1"],["X","X"],["2","2"],["1X","1X"],["12","12"],["X2","X2"]].forEach(function(e){
+    [1.5,2.5].forEach(function(l){
+      agg(e[0]+"+O"+l, e[1]+" + Over "+l, "Esito + Over",
+        (function(ee,ll){return function(x,y){return maskEsito(x,y,ee)&&x+y>ll}})(e[0],l))});
+    [2.5,3.5].forEach(function(l){
+      agg(e[0]+"+U"+l, e[1]+" + Under "+l, "Esito + Under",
+        (function(ee,ll){return function(x,y){return maskEsito(x,y,ee)&&x+y<ll}})(e[0],l))})});
+  // esito + entrambe a segno
+  [["1","1"],["X","X"],["2","2"],["1X","1X"],["X2","X2"]].forEach(function(e){
+    agg(e[0]+"+GG", e[1]+" + Goal", "Esito + Goal",
+      (function(ee){return function(x,y){return maskEsito(x,y,ee)&&x>0&&y>0}})(e[0]));
+    agg(e[0]+"+NG", e[1]+" + NoGoal", "Esito + NoGoal",
+      (function(ee){return function(x,y){return maskEsito(x,y,ee)&&!(x>0&&y>0)}})(e[0]))});
+  // goal + totale
+  [1.5,2.5,3.5].forEach(function(l){
+    agg("GG+O"+l,"Goal + Over "+l,"Goal + totale",
+      (function(ll){return function(x,y){return x>0&&y>0&&x+y>ll}})(l))});
+  agg("GG+U3.5","Goal + Under 3.5","Goal + totale",function(x,y){return x>0&&y>0&&x+y<3.5});
+  // multigol: totale dei gol in un intervallo
+  [[1,2],[1,3],[1,4],[2,3],[2,4],[2,5],[3,4],[3,5],[3,6],[0,1],[0,2],[0,3],[4,6]].forEach(function(r){
+    agg("MG"+r[0]+"-"+r[1],"Multigol "+r[0]+"-"+r[1],"Multigol",
+      (function(a,b){return function(x,y){return x+y>=a&&x+y<=b}})(r[0],r[1]))});
+  // multigol di squadra
+  [[1,2],[1,3],[2,3]].forEach(function(r){
+    agg("MGC"+r[0]+"-"+r[1],"Multigol casa "+r[0]+"-"+r[1],"Multigol squadra",
+      (function(a,b){return function(x,y){return x>=a&&x<=b}})(r[0],r[1]));
+    agg("MGO"+r[0]+"-"+r[1],"Multigol ospiti "+r[0]+"-"+r[1],"Multigol squadra",
+      (function(a,b){return function(x,y){return y>=a&&y<=b}})(r[0],r[1]))});
+})();
+function comboById(id){for(var i=0;i<COMBO.length;i++)if(COMBO[i].id===id)return COMBO[i];return null}
+
 /* ---- gol attesi impliciti nelle quote ----
    Cerca la coppia (lambda, mu) la cui matrice riproduce le probabilita' di
    mercato. E' il passaggio che permette di prezzare i mercati secondari a
@@ -558,7 +624,8 @@ function modelProbs(casa,ospiti,div){
 
 /* ---- stato ---- */
 var state={legs:[],log:[],weekly:30,bankroll:1200,margin:0.04,minLeg:1.25,
-  w:0,quote:{},extra:[],aperta:null,filtro:"tutte",mkt:"1X2",book:"goldbet"};
+  w:0,quote:{},extra:[],aperta:null,filtro:"tutte",mkt:"1X2",book:"goldbet",
+  scelte:[],gen:null};
 /* Il bonus non e' una proprieta' della schedina ma del banco su cui la giochi:
    scaglioni, quota minima per gamba e numero minimo di eventi cambiano da un
    bookmaker all'altro. Per questo tutto qui sotto legge il banco selezionato. */
@@ -576,6 +643,132 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){
 function tutteLePartite(){return DATI.partite.concat(state.extra)}
 function trovaPartita(id){var a=tutteLePartite();
   for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null}
+
+/* ---- generatore di schedina ----
+   Date le partite scelte e una quota da raggiungere, cerca la combinazione con
+   la probabilita' di vincita piu' alta. Una gamba per partita al massimo: due
+   selezioni sulla stessa partita sono correlate e quasi nessun banco le accetta
+   in multipla.
+
+   Il criterio e' "la piu' sicura che arriva alla quota", non "quella con il
+   valore atteso migliore": sono due cose diverse e l'utente ha chiesto la
+   prima. Massimizzare la probabilita' a quota fissata equivale a sprecare meno
+   quota possibile oltre l'obiettivo, ed e' il motivo per cui la soluzione tende
+   ad avere poche gambe. */
+var PASSO=0.01;   // risoluzione della quota in scala logaritmica
+
+function candidatiPartita(p){
+  var out=[],matr=null;
+  var g=golImpliciti(p);
+  if(g)matr=g.matrice;
+  else{var mod=modelProbs(p.casa,p.ospiti,p.div);
+    if(mod)matr=scoreMatrix(mod.lam,mod.mu,DATI.rho)}
+  if(!matr)return out;
+  var margStim=state.margin;
+
+  MERCATI.forEach(function(mkt){
+    var pr=probsMercato(matr,mkt);
+    mkt.sel.forEach(function(sel){
+      var prob=pr[sel];
+      if(!(prob>0.03&&prob<0.97))return;
+      var reale=prezzoDelBook(p,mkt.id,sel);
+      out.push({partita:p,tipo:"mkt",mkt:mkt.id,sel:sel,
+        nome:mkt.nome+": "+sel,prob:prob,
+        price:reale!=null?reale:(1/prob)/(1+margStim),stimato:reale==null})})});
+
+  COMBO.forEach(function(cb){
+    var prob=probCombo(matr,cb.test);
+    if(!(prob>0.03&&prob<0.97))return;
+    var reale=prezzoCombo(p,cb.id);
+    out.push({partita:p,tipo:"combo",mkt:cb.id,sel:cb.nome,
+      nome:cb.nome,prob:prob,gruppo:cb.gruppo,
+      // le combo portano margini piu' larghi dei mercati principali
+      price:reale!=null?reale:(1/prob)/(1+margStim*1.8),stimato:reale==null})});
+  return out}
+
+function generaSchedina(partite,obiettivo,maxGambe){
+  var gruppi=partite.map(candidatiPartita).filter(function(g){return g.length});
+  if(!gruppi.length)return null;
+  var risultati={},qmin=bookCorrente().quota_minima;
+  for(var n=1;n<=Math.min(maxGambe,gruppi.length);n++){
+    // Il bonus del banco abbassa la quota che le gambe devono raggiungere da
+    // sole: con piu' gambe l'obiettivo diventa piu' facile, ed e' l'unica cosa
+    // che puo' compensare il margine in piu' che ogni gamba porta con se'.
+    var bn=bonusAt(n),sol=null;
+    if(bn.v>0){
+      // Contare sul bonus obbliga ogni gamba a stare sopra la quota minima del
+      // banco: una gamba sotto soglia lo farebbe decadere, e la schedina
+      // mancherebbe l'obiettivo proprio perche' abbiamo dato per scontato il
+      // bonus. Meglio restringere la ricerca che scoprirlo dopo.
+      var ridotti=gruppi.map(function(g){
+        return g.filter(function(cnd){return cnd.price>=qmin})})
+        .filter(function(g){return g.length});
+      if(ridotti.length>=n)
+        sol=miglioreCombinazione(ridotti,n,Math.log(obiettivo/(1+bn.v/100)))}
+    if(!sol)sol=miglioreCombinazione(gruppi,n,Math.log(obiettivo));
+    if(!sol)continue;
+    var qualificate=sol.gambe.filter(function(l){return l.price>=qmin}).length;
+    var bnEff=bonusAt(qualificate);
+    sol.bonus=bnEff.v;sol.bonusStimato=bnEff.est;
+    sol.quotaEff=sol.quota*(1+bnEff.v/100);
+    if(sol.quotaEff<obiettivo-1e-9)continue;
+    risultati[n]=sol}
+  return risultati}
+
+function miglioreCombinazione(gruppi,n,logT){
+  var tettoLog=0;
+  gruppi.forEach(function(g){
+    var mx=0;g.forEach(function(c){mx=Math.max(mx,Math.log(c.price))});tettoLog+=mx});
+  var target=Math.max(0,Math.ceil(logT/PASSO));
+  if(target>Math.floor(tettoLog/PASSO)+1)return null;
+  var cap=Math.min(Math.floor(tettoLog/PASSO)+2,target+Math.floor(0.9/PASSO));
+  var NEG=-1e18,G=gruppi.length;
+  var dp=[],i,j;
+  for(i=0;i<=n;i++){dp.push(new Float64Array(cap+1).fill(NEG))}
+  dp[0][0]=0;
+  var parB=[],parC=[];
+  for(i=0;i<=G;i++){parB.push([]);parC.push([]);
+    for(j=0;j<=n;j++){parB[i].push(new Int32Array(cap+1).fill(-1));
+      parC[i].push(new Int32Array(cap+1).fill(-1))}}
+
+  for(var gi=0;gi<G;gi++){
+    var nxt=[];for(i=0;i<=n;i++)nxt.push(Float64Array.from(dp[i]));
+    for(var usate=0;usate<n;usate++){
+      var riga=dp[usate];
+      for(var b=0;b<=cap;b++){
+        if(riga[b]<=NEG/2)continue;
+        var base=riga[b];
+        for(var ci=0;ci<gruppi[gi].length;ci++){
+          var cand=gruppi[gi][ci];
+          var w=Math.floor(Math.log(cand.price)/PASSO);   // per difetto: prudente
+          var d=Math.min(b+w,cap),v=base+Math.log(cand.prob);
+          if(v>nxt[usate+1][d]){nxt[usate+1][d]=v;
+            parB[gi+1][usate+1][d]=b;parC[gi+1][usate+1][d]=ci}}}}
+    dp=nxt}
+
+  // L'arrotondamento per difetto puo' far cadere sotto obiettivo una soluzione
+  // che in realta' ci arriva. Si provano i secchielli in ordine di valore
+  // decrescente e si verifica la quota esatta, invece di arrendersi al primo.
+  var slack=Math.max(0,target-n-1),ordine=[];
+  for(var bb=slack;bb<=cap;bb++)if(dp[n][bb]>NEG/2)ordine.push(bb);
+  if(!ordine.length)return null;
+  ordine.sort(function(x,y){return dp[n][y]-dp[n][x]});
+  var soglia=Math.exp(logT);
+
+  for(var oi=0;oi<Math.min(ordine.length,80);oi++){
+    var gambe=[],usate2=n,b2=ordine[oi];
+    for(var gg=G;gg>0;gg--){
+      var ci2=parC[gg][usate2][b2];
+      if(ci2<0)continue;
+      gambe.push(gruppi[gg-1][ci2]);
+      b2=parB[gg][usate2][b2];usate2--;
+      if(usate2===0)break}
+    if(gambe.length!==n)continue;
+    var q=1,pr=1,stim=0;
+    gambe.forEach(function(l){q*=l.price;pr*=l.prob;if(l.stimato)stim++});
+    if(q<soglia-1e-9)continue;
+    return{gambe:gambe,quota:q,prob:pr,stimati:stim}}
+  return null}
 
 /* ---- quote di una partita, mercato per mercato ---- */
 function righeDi(p,mktId){
@@ -609,6 +802,23 @@ function prezzoDelBook(p,mktId,sel){
     if((r.book||"").toLowerCase()===state.book&&r.prezzi&&r.prezzi[sel]>1)
       return r.prezzi[sel]}
   return null}
+
+/* Le combo sono vendute come esito singolo: non esiste il complementare,
+   quindi non c'e' margine da togliere e il prezzo si confronta direttamente
+   con la quota equa che la matrice implica. */
+function prezzoCombo(p,comboId){
+  var q=state.quote[p.id];
+  if(!q||Array.isArray(q))return null;
+  var v=q["combo:"+comboId];
+  if(!v)return null;
+  return (v[state.book]>1)?v[state.book]:null}
+function setPrezzoCombo(p,comboId,prezzo){
+  if(!state.quote[p.id]||Array.isArray(state.quote[p.id]))righeDi(p,"1X2");
+  if(!state.quote[p.id])state.quote[p.id]={};
+  var k="combo:"+comboId;
+  if(!state.quote[p.id][k])state.quote[p.id][k]={};
+  if(prezzo>1)state.quote[p.id][k][state.book]=prezzo;
+  else delete state.quote[p.id][k][state.book]}
 
 function analizzaMercato(p,mktId){
   var mkt=mercatoById(mktId);if(!mkt)return null;
@@ -861,10 +1071,24 @@ function renderLista(){
     var d=new Date(p.quando);
     var when=d.toLocaleDateString("it-IT",{weekday:"short",day:"numeric",month:"short"})+
       "<br>"+d.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});
-    return'<button class="fx" data-id="'+esc(p.id)+'"><span class="fx-when">'+when+
+    var sel=state.scelte.indexOf(p.id)>=0;
+    return'<div class="fx-wrap'+(sel?' sel':'')+'">'+
+      '<label class="fx-ck"><input type="checkbox" data-sel="'+esc(p.id)+'"'+
+      (sel?' checked':'')+' aria-label="scegli partita"></label>'+
+      '<button class="fx" data-id="'+esc(p.id)+'"><span class="fx-when">'+when+
       '</span><span class="fx-t"><span class="fx-n">'+esc(p.casa)+' \u2013 '+esc(p.ospiti)+
-      pill+'</span><span class="fx-p">'+sub+'</span></span><span class="fx-go">\u203a</span></button>'
+      pill+'</span><span class="fx-p">'+sub+'</span></span><span class="fx-go">\u203a</span></button></div>'
   }).join("");
+  Array.prototype.forEach.call(document.querySelectorAll("#listaBox [data-sel]"),function(ck){
+    ck.addEventListener("change",function(){
+      var id=ck.getAttribute("data-sel"),i=state.scelte.indexOf(id);
+      if(ck.checked){if(i<0)state.scelte.push(id)}else if(i>=0)state.scelte.splice(i,1);
+      lsSet("qv2.scelte",state.scelte);
+      // solo la riga toccata cambia aspetto: ridisegnare tutta la lista a ogni
+      // spunta farebbe perdere la posizione di scorrimento
+      var w=ck.closest(".fx-wrap");
+      if(w)w.className="fx-wrap"+(ck.checked?" sel":"");
+      renderGen()})});
   Array.prototype.forEach.call(document.querySelectorAll("#listaBox [data-id]"),function(b){
     b.addEventListener("click",function(){apri(b.getAttribute("data-id"))})})}
 
@@ -1111,6 +1335,85 @@ function sottoinsiemi(legs,target){
     if(!best||s.prob>best.s.prob)best={sub:sub,s:s}}
   return{byC:byC,best:best}}
 
+/* Cerca fra tutti i mercati e tutte le combo delle partite scelte la schedina
+   con la probabilita' di vincita piu' alta che raggiunge la quota voluta. */
+function renderGen(){
+  var box=document.getElementById("genBox");if(!box)return;
+  var scelte=state.scelte.map(trovaPartita).filter(Boolean);
+  if(!scelte.length){
+    box.innerHTML='<p class="lede" style="margin:0">Spunta le partite che ti '+
+      'interessano nella scheda <b>Partite</b>, poi torna qui: cerco fra tutti i '+
+      'mercati e le combo la giocata più sicura che arriva alla quota che vuoi.</p>';
+    return}
+  var h='<p class="lede" style="margin-bottom:10px">'+scelte.length+' partit'+
+    (scelte.length===1?'a scelta':'e scelte')+' · banco <b>'+esc(nomeBook(state.book))+'</b></p>'+
+    '<div class="grid g2">'+
+    '<div><label for="genQ">Quota da raggiungere</label>'+
+    '<input type="number" id="genQ" step="0.5" min="1.5" value="'+
+      (state.genQ||5)+'" inputmode="decimal"></div>'+
+    '<div><label for="genN">Gambe al massimo</label>'+
+    '<input type="number" id="genN" step="1" min="1" max="10" value="'+
+      (state.genN||6)+'" inputmode="numeric"></div></div>'+
+    '<div class="row-btn"><button class="btn" id="btnGen">Cerca la più sicura</button>'+
+    '<button class="btn ghost" id="btnGenClear">Deseleziona tutto</button></div>'+
+    '<div id="genEsito"></div>';
+  box.innerHTML=h;
+  document.getElementById("btnGenClear").addEventListener("click",function(){
+    state.scelte=[];lsSet("qv2.scelte",state.scelte);state.gen=null;renderGen();renderLista()});
+  document.getElementById("btnGen").addEventListener("click",function(){
+    state.genQ=parseFloat(document.getElementById("genQ").value)||5;
+    state.genN=parseInt(document.getElementById("genN").value,10)||6;
+    var t=Date.now();
+    state.gen=generaSchedina(scelte,state.genQ,Math.min(10,state.genN));
+    state.genMs=Date.now()-t;
+    mostraGen()});
+  if(state.gen)mostraGen()}
+
+function mostraGen(){
+  var e=document.getElementById("genEsito");if(!e)return;
+  var res=state.gen;
+  if(!res||!Object.keys(res).length){
+    e.innerHTML='<div class="warn">Con queste partite non si arriva a quota '+
+      fmt(state.genQ||5)+'. Scegline altre, oppure abbassa l’obiettivo.</div>';return}
+  var ks=Object.keys(res).map(Number).sort(function(a,b){return a-b});
+  var best=ks.reduce(function(a,b){return res[a].prob>=res[b].prob?a:b});
+  var r=res[best];
+  var stim=r.gambe.filter(function(l){return l.stimato}).length;
+  var t='<div class="verdict pos" style="margin-top:12px"><h3>'+best+' gamb'+
+    (best===1?'a':'e')+' · quota '+fmt(r.quotaEff)+
+    (r.bonus>0?' (bonus +'+fmt(r.bonus,0)+'%'+(r.bonusStimato?'~':'')+')':'')+'</h3>'+
+    '<div class="big">'+pct(r.prob)+'</div>'+
+    '<p>È la combinazione più probabile fra quelle che arrivano a quota '+
+    fmt(state.genQ||5)+': vince una volta ogni <b class="num">'+fmt(1/r.prob,1)+
+    '</b> tentativi. Cercata in '+(state.genMs||0)+' ms.</p></div>';
+  t+='<div class="tbl-scroll" style="margin-top:10px"><table><thead><tr><th>Partita</th>'+
+    '<th>Esito</th><th>Quota</th><th>Prob.</th></tr></thead><tbody>';
+  r.gambe.forEach(function(l){
+    t+='<tr><td style="font-size:12px">'+esc(l.partita.casa)+'<br>'+esc(l.partita.ospiti)+
+      '</td><td style="text-align:left;font-size:12px">'+esc(l.nome)+'</td><td class="q">'+
+      fmt(l.price)+(l.stimato?'<span style="color:var(--ink-faint)">~</span>':'')+
+      '</td><td>'+pct(l.prob)+'</td></tr>'});
+  t+='</tbody></table></div>';
+  if(stim)t+='<div class="warn"><b>'+stim+' quot'+(stim===1?'a stimata':'e stimate')+
+    '</b> (segnate con ~): non le hai inserite, quindi l’app ha usato la quota equa '+
+    'meno un margine tipico. Vai a controllarle su '+esc(nomeBook(state.book))+
+    ' e inseriscile: se il banco paga meno, la quota finale scende sotto l’obiettivo.</div>';
+  t+='<div class="row-btn"><button class="btn" id="btnGenUse">Metti in schedina</button></div>';
+  t+='<div class="tbl-scroll" style="margin-top:12px"><table><thead><tr><th>Gambe</th>'+
+    '<th>Quota</th><th>P(vincita)</th><th>1 su</th></tr></thead><tbody>';
+  ks.forEach(function(n){var x=res[n];
+    t+='<tr'+(n===best?' class="hl"':'')+'><td>'+n+'</td><td class="q">'+fmt(x.quotaEff)+
+      '</td><td>'+pct(x.prob)+'</td><td>'+fmt(1/x.prob,1)+'</td></tr>'});
+  t+='</tbody></table></div><p class="note">Stessa vincita in ogni riga: cambia solo '+
+    'quanto è probabile incassarla. Il bonus del banco è già incluso.</p>';
+  e.innerHTML=t;
+  document.getElementById("btnGenUse").addEventListener("click",function(){
+    state.legs=r.gambe.map(function(l){
+      return{nome:l.nome,match:l.partita.id,mkt:l.mkt,sel:l.sel,price:l.price,
+        p:l.prob,book:state.book,etichetta:l.partita.casa+" – "+l.partita.ospiti,
+        stimato:l.stimato}});
+    renderSchedina();document.getElementById("legsBox").scrollIntoView({block:"start"})})}
+
 function renderSchedina(){
   var box=document.getElementById("legsBox");
   if(!state.legs.length){
@@ -1272,7 +1575,7 @@ var TABS=["partite","schedina","bonus","registro"];
 function showTab(n){TABS.forEach(function(t){
   document.getElementById("tab-"+t).setAttribute("aria-selected",t===n?"true":"false");
   document.getElementById("p-"+t).hidden=t!==n});
-  if(n==="schedina")renderSchedina();
+  if(n==="schedina"){renderGen();renderSchedina()}
   if(n==="bonus")renderBonus();
   if(n==="registro")renderRegistro();
   lsSet("qv2.tab",n);window.scrollTo(0,0)}
@@ -1336,6 +1639,7 @@ function etichettaPeso(){
   state.log=lsGet("qv2.log",[]);
   state.quote=lsGet("qv2.quote",{});
   state.extra=lsGet("qv2.extra",[]);
+  state.scelte=lsGet("qv2.scelte",[]);
   etichettaPeso();renderAuto();renderBookPicker();renderOccasioni();renderFiltri();renderLista();renderBudget();
   var g=new Date(DATI.generato);
   document.getElementById("stamp").textContent="Rating e calendario aggiornati al "+
