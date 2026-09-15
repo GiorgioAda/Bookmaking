@@ -1,0 +1,68 @@
+{
+  "_avvertenza": [
+    "DATI NON VERIFICATI ALLA FONTE UFFICIALE.",
+    "Raccolti da siti di comparazione e affiliazione, non dai regolamenti dei",
+    "bookmaker. Le promozioni cambiano spesso e le fonti si contraddicono fra",
+    "loro (per Eurobet il massimo dichiarato varia da +144,7% a +354,9%).",
+    "",
+    "Servono a dare la forma della curva e a fare i primi conti, non a decidere",
+    "dove puntare. Prima di giocarci sopra, i valori vanno sostituiti con quelli",
+    "del regolamento ufficiale del proprio conto.",
+    "",
+    "ancoraggi: numero di eventi -> percentuale di bonus effettivamente trovata.",
+    "Fra un ancoraggio e l'altro gli strumenti interpolano, e lo dichiarano."
+  ],
+  "_fonti": [
+    "https://www.betscanner.it/news/approfondimenti/bonus-multipla-goldbet-come-funziona-e-come-ottenerlo",
+    "https://www.calciomercato.com/scommesse/recensioni-goldbet/bonus",
+    "https://www.oddschecker.com/it/bonus-scommesse/bonus-multipla",
+    "https://www.scommesse.org/bonus/bonus-multipla/",
+    "https://bookmakerbonus.it/bonus-multipla"
+  ],
+  "_rilevato_il": "2026-09-15",
+  "bookmaker": {
+    "goldbet": {
+      "gambe_minime": 5,
+      "quota_minima_per_gamba": 1.25,
+      "ancoraggi": {"5": 4, "8": 15, "30": 250},
+      "tetto_vincita_eur": 50000,
+      "note": "Le fonti divergono sulla quota minima (1.20 o 1.25) e sul massimo (200% o 250%). Eventi entro 7 giorni dalla giocata."
+    },
+    "eurobet": {
+      "gambe_minime": 5,
+      "quota_minima_per_gamba": 1.25,
+      "ancoraggi": {"5": 4, "30": 145},
+      "note": "Una fonte dichiara un massimo di +354,9%, un'altra circa +144,7%. Divergenza non risolta."
+    },
+    "planetwin365": {
+      "gambe_minime": 5,
+      "quota_minima_per_gamba": 1.25,
+      "ancoraggi": {"5": 4, "30": 255},
+      "note": null
+    },
+    "snai": {
+      "gambe_minime": 5,
+      "quota_minima_per_gamba": 1.25,
+      "ancoraggi": {"5": 3.5, "30": 144.6},
+      "note": "Una fonte indica un massimo di 177,25%."
+    },
+    "sisal": {
+      "gambe_minime": 5,
+      "quota_minima_per_gamba": 1.24,
+      "ancoraggi": {"5": 4, "30": 177},
+      "note": null
+    },
+    "better": {
+      "gambe_minime": 2,
+      "quota_minima_per_gamba": 1.03,
+      "ancoraggi": {"2": 1, "30": 200},
+      "note": "L'unico che parte da 2 eventi e con quota minima molto bassa. La percentuale a 2 eventi non e' confermata: il valore qui e' un segnaposto prudente."
+    },
+    "bet365": {
+      "gambe_minime": 3,
+      "quota_minima_per_gamba": 1.20,
+      "ancoraggi": {"3": 3, "30": 100},
+      "note": "Ancoraggi non confermati."
+    }
+  }
+}

@@ -1,6 +1,7 @@
 # Bookmaking
 
 > **Devi solo far partire le cose? Leggi [AVVIO.md](AVVIO.md).**
+> **Dal telefono? [MOBILE.md](MOBILE.md).**
 
 Motore di pronostici calcistici: modello statistico, stima della quota equa,
 ricerca del valore e gestione del bankroll.
@@ -184,6 +185,34 @@ traguardo, al prezzo di perdere tutto molto piu' spesso.
 
 ```bash
 python examples/schedina_quota5.py
+```
+
+### Confronto fra i bonus dei bookmaker italiani
+
+`examples/confronta_bonus.py` mette i bonus multipla di sette operatori contro
+la soglia di convenienza. L'esito, con margine del 4% per gamba:
+
+| | 5 gambe | 10 | 20 | 30 |
+|---|---|---|---|---|
+| **serve** | +23% | +50% | +126% | +240% |
+| goldbet | +4% | ~+19% | ~+70% | +250% |
+| planetwin365 | +4% | ~+9% | ~+48% | +255% |
+| sisal | +4% | ~+9% | ~+39% | +177% |
+| snai | +4% | ~+7% | ~+33% | +145% |
+
+Solo Goldbet e Planetwin365 superano la soglia, e solo a **trenta gambe**. Li'
+la schedina vince una volta su 2.749: a quindici giocate a settimana, sono tre
+anni e mezzo di attesa per una vincita. Il vantaggio esiste sulla carta e non si
+concretizza in un tempo umano.
+
+Dove la vincita arriva davvero — cinque, otto, dieci gambe — nessun bonus
+italiano copre il margine composto.
+
+I dati provengono da siti di comparazione, **non dai regolamenti ufficiali**, e
+le fonti si contraddicono fra loro. Vanno verificati prima di giocarci sopra.
+
+```bash
+python examples/confronta_bonus.py
 ```
 
 ## Usare Goldbet (o qualsiasi book senza feed)
