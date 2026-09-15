@@ -145,3 +145,22 @@ def test_i_conti_della_schedina_tornano():
     assert t.potential_return == pytest.approx(14.40, rel=1e-9)
     assert t.ev == pytest.approx(t.probability * 3.60 - 1.0, rel=1e-9)
     assert t.expected_profit == pytest.approx(4.0 * t.ev, rel=1e-9)
+
+
+def test_la_quota_richiesta_e_la_soglia_di_convenienza():
+    """Sopra quella quota la selezione conviene, sotto no: e' tutto il senso."""
+    from bookmaking.advisor import Candidate
+    from bookmaking.domain import Match
+    from datetime import datetime
+
+    partita = Match("IT1", "2024-2025", datetime(2025, 3, 1), "Inter", "Milan")
+    c = Candidate(match=partita, market="1X2", selection="1", p_final=0.50,
+                  required_price=1.03 / 0.50, best_feed_price=2.20,
+                  best_feed_book="sisal", n_books=5)
+    assert c.fair_price == pytest.approx(2.00, abs=1e-9)
+    assert c.required_price == pytest.approx(2.06, abs=1e-9)
+    assert c.already_playable          # 2.20 supera la soglia
+    scarso = Candidate(match=partita, market="1X2", selection="1", p_final=0.50,
+                       required_price=2.06, best_feed_price=1.95,
+                       best_feed_book="sisal", n_books=5)
+    assert not scarso.already_playable

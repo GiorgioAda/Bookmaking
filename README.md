@@ -115,6 +115,46 @@ I bookmaker non sono pareri indipendenti: Goldbet, Better e Lottomatica sono lo
 stesso palinsesto. Nel consenso il peso viene diviso all'interno del gruppo,
 altrimenti un parere solo conterebbe per tre.
 
+## Usare Goldbet (o qualsiasi book senza feed)
+
+Avere un conto permette di *vedere* e *giocare* le quote, non di riceverle via
+API, e raschiare il sito e' escluso: viola i termini di servizio, si rompe a
+ogni modifica della pagina e viene bloccato dalle protezioni anti-bot.
+
+Serve pero' molto meno di quanto sembri, perche' nel sistema i book hanno due
+ruoli distinti e Goldbet ne ricopre uno solo. La *quota vera* la stima il
+consenso fra molti book, dove pesano soprattutto quelli affilati; il *prezzo su
+cui si gioca* riguarda solo le poche selezioni gia' selezionate. Con 3-6
+giocate a settimana, quel secondo ruolo si copre battendo a mano altrettanti
+numeri.
+
+Il sistema calcola in anticipo la **quota richiesta** di ogni selezione, cioe'
+la soglia oltre la quale conviene. Sull'app di Goldbet resta un confronto:
+
+```python
+for c in advisor.shortlist(partite, quote):
+    print(f"{c.label:<24} {c.selection}  serve almeno {c.required_price:.2f}")
+```
+```
+Inter - Lecce              1   serve almeno 1.74
+Bologna - Torino           X   serve almeno 3.56
+```
+
+Le quote lette si inseriscono e il sistema ricalcola vantaggio e puntata:
+
+```python
+from bookmaking.ingest import ManualPrices
+prezzi = ManualPrices()
+prezzi.add(partita.match_id, "1X2", "1", 1.85)
+piano, _ = advisor.weekly_plan(partite, prezzi.merge_into(quote))
+```
+
+Una quota parziale inserita cosi' **non entra nel consenso** — con una sola
+selezione il margine non e' calcolabile, quindi non e' un parere sul prezzo
+vero — ma vale come prezzo giocabile. E se Goldbet comparisse nel feed
+dell'aggregatore, la quota battuta a mano ha comunque la precedenza: l'hai
+letta adesso, il feed puo' essere vecchio di ore.
+
 ## Uso
 
 ```bash
@@ -139,11 +179,23 @@ for b in piano.bets:
 
 ## Stato
 
-Fatto e testato: modello, mercati, rimozione margine, consenso, fusione,
-Kelly, schedine con correlazione, backtest, simulatore, adattatori dati.
+Fatto e testato (70 test): modello, mercati, rimozione margine, consenso,
+fusione, Kelly, schedine con correlazione, backtest, simulatore, adattatori
+dati, inserimento manuale delle quote e selezione con quota richiesta.
 
-Da fare: app mobile (Expo/React Native) e API che la serve; taratura degli
-iperparametri sui dati veri; alias dei nomi squadra fra fonti diverse.
+**Passo successivo, da eseguire in locale** — richiede accesso a internet, che
+l'ambiente di sviluppo non aveva:
+
+```bash
+python examples/scarica_e_tara.py --stagioni 6
+```
+
+Scarica gli undici campionati, controlla i nomi squadra, tara `xi` e `l2` per
+nazione in walk-forward e confronta il modello con le quote di chiusura
+dell'epoca. Scrive `data/config_tarato.json`. Finche' non gira, gli
+iperparametri restano quelli tarati in simulazione.
+
+Poi: app mobile (Expo/React Native) e API che la serve.
 
 Gli adattatori dati (`FootballDataCsv`, `TheOddsApi`) seguono i formati
 documentati ma **non sono stati verificati contro i servizi dal vivo**:

@@ -108,7 +108,9 @@ def consensus_probabilities(quotes: list[OddsQuote],
     if not quotes:
         raise ValueError("nessuna quota disponibile")
     weights = weights or BookWeights()
-    selections = sorted({s for q in quotes for s in q.prices})
+    selections = _reference_selections(quotes)
+    if selections is None:
+        raise ValueError("nessun book con mercato completo")
     w_map = weights.weights_for(quotes)
 
     acc = np.zeros(len(selections))
@@ -125,6 +127,7 @@ def consensus_probabilities(quotes: list[OddsQuote],
 
     if used == 0 or tot <= 0:
         raise ValueError("nessun book con mercato completo")
+
     if used < min_books:
         # Con un solo book il "consenso" e' solo l'opinione di quel book: si
         # restituisce comunque, ma chi chiama deve saperlo (vedi n_books).
@@ -132,6 +135,29 @@ def consensus_probabilities(quotes: list[OddsQuote],
     p = acc / tot
     p = p / p.sum()
     return {s: float(v) for s, v in zip(selections, p)}
+
+
+def _reference_selections(quotes: list[OddsQuote]) -> tuple[str, ...] | None:
+    """Quali selezioni compongono il mercato, secondo la maggioranza dei book.
+
+    Prenderle come unione di tutte quelle viste sarebbe fragile in un modo
+    concreto: una quota inserita a mano con un'etichetta diversa ("1 (casa)"
+    invece di "1") allargherebbe l'insieme, e a quel punto *nessun* book
+    risulterebbe completo. Basta un errore di battitura per far fallire il
+    consenso di tutta la partita. Vince invece l'insieme di selezioni piu'
+    frequente fra i book, e le voci che non vi corrispondono vengono ignorate
+    nel consenso — restano comunque utilizzabili come prezzo giocabile.
+    """
+    counts: dict[tuple[str, ...], int] = {}
+    for q in quotes:
+        if len(q.prices) < 2:
+            continue
+        key = tuple(sorted(q.prices))
+        counts[key] = counts.get(key, 0) + 1
+    if not counts:
+        return None
+    # a parita' di frequenza vince il mercato piu' ricco di selezioni
+    return max(counts, key=lambda k: (counts[k], len(k)))
 
 
 def fair_odds(probabilities: dict[str, float]) -> dict[str, float]:

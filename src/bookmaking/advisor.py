@@ -62,6 +62,38 @@ class MatchAnalysis:
         return self.edges[0] if self.edges else None
 
 
+@dataclass(frozen=True)
+class Candidate:
+    """Una selezione da andare a controllare sul proprio bookmaker.
+
+    ``required_price`` e' il punto di tutto: la quota minima oltre la quale la
+    selezione diventa conveniente. Trasforma la domanda "quanto vale questa
+    partita?", che richiede il sistema davanti, nella domanda "la quota
+    sull'app supera 2.45?", a cui si risponde in un secondo.
+    """
+
+    match: Match
+    market: str
+    selection: str
+    p_final: float
+    required_price: float
+    best_feed_price: float | None
+    best_feed_book: str | None
+    n_books: int
+
+    @property
+    def fair_price(self) -> float:
+        return 1.0 / self.p_final if self.p_final > 0 else float("inf")
+
+    @property
+    def already_playable(self) -> bool:
+        return (self.best_feed_price or 0.0) >= self.required_price
+
+    @property
+    def label(self) -> str:
+        return f"{self.match.home} - {self.match.away}"
+
+
 @dataclass
 class Advisor:
     """Consulente: dal modello stimato alle giocate consigliate."""
@@ -146,6 +178,51 @@ class Advisor:
             all_edges.extend(analysis.edges)
         plan = plan_stakes(all_edges, self.policy, available_budget)
         return plan, analyses
+
+    def shortlist(self, fixtures: list[Match], odds: dict[str, MatchOdds],
+                  markets: tuple[str, ...] = ("1X2",),
+                  top_n: int = 12) -> list[Candidate]:
+        """Le selezioni da controllare sul proprio bookmaker, con la soglia di convenienza.
+
+        E' il passaggio che rende praticabile un book senza feed: invece di
+        battere a mano l'intero palinsesto, si controllano solo le poche
+        selezioni che il modello ritiene sottovalutate dal mercato, sapendo gia'
+        a quale quota vale la pena giocarle.
+        """
+        out: list[Candidate] = []
+        soglia = 1.0 + self.policy.min_ev
+        for fixture in fixtures:
+            analysis = self.analyse(fixture, odds.get(fixture.match_id or ""), markets)
+            for market in markets:
+                final = analysis.model_probs.get(market)
+                if final is None:
+                    continue
+                if market in analysis.market_probs:
+                    final = blend_probabilities(final, analysis.market_probs[market],
+                                                self.model_weight)
+                for selection, p in final.items():
+                    if p <= 0:
+                        continue
+                    best = None
+                    mo = odds.get(fixture.match_id or "")
+                    if mo is not None:
+                        best = mo.best_price(market, selection)
+                    out.append(Candidate(
+                        match=fixture, market=market, selection=selection, p_final=p,
+                        required_price=soglia / p,
+                        best_feed_price=best[1] if best else None,
+                        best_feed_book=best[0] if best else None,
+                        n_books=analysis.n_books))
+
+        # in cima quelle dove il mercato e' gia' vicino alla soglia: sono le piu'
+        # probabili da trovare giocabili anche altrove
+        def vicinanza(c: Candidate) -> float:
+            if c.best_feed_price is None:
+                return 0.0
+            return c.best_feed_price / c.required_price
+
+        out.sort(key=vicinanza, reverse=True)
+        return out[:top_n]
 
     def build_ticket_from(self, picks: list[tuple[Match, str, str]],
                           odds: dict[str, MatchOdds], stake: float) -> Ticket:
