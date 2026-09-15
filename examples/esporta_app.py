@@ -55,6 +55,39 @@ def main(giorni: int = 10) -> None:
         print(f"  {paese}: {len(fit.teams)} squadre da {fit.n_matches} partite "
               f"(xi={t['xi']}, rho={fit.rho:+.3f})")
 
+    # Andamento recente di ogni squadra: ultimi risultati, punti, gol.
+    # Sono dati gia' nello storico, non serve nessuna fonte in piu', e servono
+    # a dare contesto all'utente piu' che al modello — il decadimento temporale
+    # la forma la incorpora gia'.
+    forma: dict[str, dict] = {}
+    tutte, _ = src.load()
+    recenti = [m for m in tutte if m.played]
+    recenti.sort(key=lambda m: m.kickoff)
+    per_squadra: dict[str, list] = {}
+    for m in recenti:
+        per_squadra.setdefault(m.home, []).append((m, True))
+        per_squadra.setdefault(m.away, []).append((m, False))
+    for nome, storia in per_squadra.items():
+        ultime = storia[-5:]
+        esiti, punti, gf, gs = [], 0, 0, 0
+        for m, in_casa in ultime:
+            mie_reti = m.home_goals if in_casa else m.away_goals
+            sue = m.away_goals if in_casa else m.home_goals
+            gf += mie_reti
+            gs += sue
+            if mie_reti > sue:
+                esiti.append("V")
+                punti += 3
+            elif mie_reti == sue:
+                esiti.append("N")
+                punti += 1
+            else:
+                esiti.append("P")
+        if ultime:
+            forma[nome] = {"esiti": "".join(esiti), "punti": punti,
+                           "gf": gf, "gs": gs, "n": len(ultime),
+                           "ultima": ultime[-1][0].kickoff.date().isoformat()}
+
     rho = round(float(fit.rho), 4)
     alias = carica()
     of = OpenFootball(aliases=alias)
@@ -83,12 +116,13 @@ def main(giorni: int = 10) -> None:
     dati = {"generato": oggi.isoformat(timespec="minutes"), "rho": rho,
             "squadre": squadre, "divisioni": divisioni, "partite": partite,
             "calendari_disponibili": sorted(of.available()),
-            "bookmaker": books,
+            "bookmaker": books, "forma": forma,
             "prior_sconosciuta": {"att": -0.12, "dif": 0.12}}
     out = Path("app/dati.json")
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps(dati, ensure_ascii=False, separators=(",", ":")))
 
+    print(f"  andamento recente per {len(forma)} squadre")
     print(f"\n{len(squadre)} squadre, {len(divisioni)} divisioni, "
           f"{len(partite)} partite nei prossimi {giorni} giorni")
     print(f"calendari disponibili: {', '.join(sorted(of.available()))}")
