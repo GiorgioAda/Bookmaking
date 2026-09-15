@@ -1,0 +1,838 @@
+<title>Quota Vera</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#EFF1F4; --panel:#FFFFFF; --panel-2:#F7F8FA;
+  --ink:#171A20; --ink-soft:#5C6373; --ink-faint:#8A91A0;
+  --rule:#DBDFE6; --rule-strong:#C3C9D3;
+  --accent:#9C6F17; --accent-bg:#F6EEDD;
+  --pos:#2B6F52; --pos-bg:#E4F0EA; --neg:#9E3A30; --neg-bg:#F7E7E5;
+  --warn:#7D5E16; --warn-bg:#F7F0DE;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --disp:"Archivo","IBM Plex Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#121419; --panel:#1A1D24; --panel-2:#20242C;
+  --ink:#E7E9EE; --ink-soft:#9BA3B4; --ink-faint:#6B7383;
+  --rule:#2A2F39; --rule-strong:#39404C;
+  --accent:#D3A44A; --accent-bg:#2A2517;
+  --pos:#5FB38B; --pos-bg:#16271F; --neg:#D97A6C; --neg-bg:#2A1A18;
+  --warn:#C9A554; --warn-bg:#262013;
+}}
+:root[data-theme="dark"]{
+  --ground:#121419; --panel:#1A1D24; --panel-2:#20242C;
+  --ink:#E7E9EE; --ink-soft:#9BA3B4; --ink-faint:#6B7383;
+  --rule:#2A2F39; --rule-strong:#39404C;
+  --accent:#D3A44A; --accent-bg:#2A2517;
+  --pos:#5FB38B; --pos-bg:#16271F; --neg:#D97A6C; --neg-bg:#2A1A18;
+  --warn:#C9A554; --warn-bg:#262013;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.5;margin:0;-webkit-text-size-adjust:100%}
+.wrap{max-width:620px;margin:0 auto;padding-inline:16px;padding-block:0 40px}
+h1,h2,h3{font-family:var(--disp);text-wrap:balance;margin:0}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* testata */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
+  background:var(--ground);border-bottom:1px solid var(--rule);margin-inline:-16px;
+  padding:10px 16px 8px}
+.top-row{display:flex;align-items:baseline;gap:10px;justify-content:space-between}
+.brand{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.01em}
+.brand span{color:var(--accent)}
+.budget{font-family:var(--mono);font-size:12px;color:var(--ink-soft)}
+.budget b{color:var(--ink);font-weight:600}
+.bar{height:4px;background:var(--rule);border-radius:2px;margin-top:7px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
+
+/* tab */
+nav{display:flex;gap:2px;margin-top:9px}
+nav button{flex:1;font-family:var(--disp);font-weight:600;font-size:12px;
+  letter-spacing:.04em;text-transform:uppercase;padding:7px 2px;border:0;
+  background:transparent;color:var(--ink-faint);cursor:pointer;
+  border-bottom:2px solid transparent}
+nav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+nav button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+section{padding-top:20px}
+.lede{color:var(--ink-soft);font-size:13.5px;margin:0 0 18px}
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:3px;
+  padding:14px;margin-bottom:14px}
+.eyebrow{font-family:var(--disp);font-size:10.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px}
+
+/* campi */
+.grid{display:grid;gap:9px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+label{display:block;font-size:11px;font-weight:500;color:var(--ink-soft);
+  margin-bottom:3px;letter-spacing:.01em}
+input,select{width:100%;font-family:var(--mono);font-size:15px;font-weight:500;
+  padding:8px 9px;border:1px solid var(--rule-strong);border-radius:3px;
+  background:var(--panel-2);color:var(--ink);-webkit-appearance:none}
+input[type=text]{font-family:var(--sans);font-weight:400}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px;
+  border-color:var(--accent)}
+.btn{font-family:var(--disp);font-weight:600;font-size:13px;padding:9px 14px;
+  border:1px solid var(--ink);border-radius:3px;background:var(--ink);
+  color:var(--panel);cursor:pointer;letter-spacing:.01em}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule-strong)}
+.btn.sm{font-size:11.5px;padding:5px 9px}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.row-btn{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
+/* verdetto */
+.verdict{border-radius:3px;padding:13px 14px;margin-bottom:14px;
+  box-shadow:0 1px 3px rgba(0,0,0,.09),0 6px 16px -8px rgba(0,0,0,.14);
+  border:1px solid var(--rule)}
+.verdict.pos{background:var(--pos-bg);border-color:var(--pos)}
+.verdict.neg{background:var(--neg-bg);border-color:var(--neg)}
+.verdict.neutral{background:var(--panel)}
+.verdict h3{font-size:14px;font-weight:700;letter-spacing:-.01em}
+.verdict .big{font-family:var(--mono);font-size:26px;font-weight:600;line-height:1.1;
+  letter-spacing:-.02em}
+.verdict.pos .big,.verdict.pos h3{color:var(--pos)}
+.verdict.neg .big,.verdict.neg h3{color:var(--neg)}
+.verdict p{margin:5px 0 0;font-size:12.5px;color:var(--ink-soft)}
+
+/* tabelle */
+.tbl-scroll{overflow-x:auto;margin-inline:-14px;padding-inline:14px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-family:var(--disp);font-size:10px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink-faint);text-align:right;
+  padding:0 0 6px;border-bottom:1px solid var(--rule)}
+th:first-child{text-align:left}
+td{padding:7px 0;border-bottom:1px solid var(--rule);text-align:right;
+  font-family:var(--mono);font-variant-numeric:tabular-nums}
+td:first-child{text-align:left;font-family:var(--sans)}
+tr:last-child td{border-bottom:0}
+td.pos{color:var(--pos)}td.neg{color:var(--neg)}
+tr.hl td{background:var(--accent-bg)}
+.q{color:var(--accent);font-weight:600}
+
+/* liste */
+.kv{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:7px 0;border-bottom:1px solid var(--rule);font-size:13.5px}
+.kv:last-child{border-bottom:0}
+.kv span:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums;
+  font-weight:500}
+.note{font-size:12px;color:var(--ink-soft);margin:10px 0 0;padding-left:11px;
+  border-left:2px solid var(--rule-strong)}
+.warn{background:var(--warn-bg);border-left:2px solid var(--warn);padding:8px 11px;
+  font-size:12.5px;color:var(--ink);margin:8px 0 0;border-radius:0 3px 3px 0}
+.leg{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:9px 0;border-bottom:1px solid var(--rule)}
+.leg>div:first-child{min-width:0;flex:1}
+.leg-s,.leg-m{overflow-wrap:anywhere}
+.leg:last-of-type{border-bottom:0}
+.leg-m{font-size:13px;font-weight:500;line-height:1.3}
+.leg-s{font-size:11.5px;color:var(--ink-soft)}
+.pill{display:inline-block;font-family:var(--disp);font-size:9.5px;font-weight:600;
+  letter-spacing:.07em;text-transform:uppercase;padding:2px 6px;border-radius:2px;
+  background:var(--panel-2);color:var(--ink-soft);border:1px solid var(--rule)}
+.pill.ok{background:var(--pos-bg);color:var(--pos);border-color:var(--pos)}
+.pill.no{background:var(--neg-bg);color:var(--neg);border-color:var(--neg)}
+.pill.ex{background:var(--accent-bg);color:var(--accent);border-color:var(--accent)}
+.empty{text-align:center;color:var(--ink-faint);font-size:13px;padding:22px 10px}
+footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
+  font-size:11.5px;color:var(--ink-faint)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+<div class="top">
+  <div class="top-row">
+    <div class="brand">Quota<span>Vera</span></div>
+    <div class="budget" id="budgetLabel">— / —</div>
+  </div>
+  <div class="bar"><i id="budgetBar" style="width:0%"></i></div>
+  <nav role="tablist">
+    <button role="tab" id="tab-partita" aria-selected="true" aria-controls="p-partita">Partita</button>
+    <button role="tab" id="tab-schedina" aria-selected="false" aria-controls="p-schedina">Schedina</button>
+    <button role="tab" id="tab-bonus" aria-selected="false" aria-controls="p-bonus">Bonus</button>
+    <button role="tab" id="tab-registro" aria-selected="false" aria-controls="p-registro">Registro</button>
+  </nav>
+</div>
+
+<!-- ============ PARTITA ============ -->
+<section id="p-partita" role="tabpanel" aria-labelledby="tab-partita">
+  <p class="lede">Inserisci le quote 1X2 che vedi sul bookmaker. L'app toglie il
+  margine del banco, ricava i gol attesi impliciti e da quelli calcola la quota
+  equa di <em>tutti</em> gli altri mercati.</p>
+
+  <div class="panel">
+    <div class="eyebrow">Partita <span class="pill ex" id="exBadge">esempio</span></div>
+    <div class="grid g2">
+      <div><label for="fCasa">Squadra di casa</label>
+        <input type="text" id="fCasa" value="Inter" autocomplete="off"></div>
+      <div><label for="fOspiti">Squadra ospite</label>
+        <input type="text" id="fOspiti" value="Lecce" autocomplete="off"></div>
+    </div>
+    <div class="eyebrow" style="margin-top:14px">Quote 1X2 del tuo bookmaker</div>
+    <div class="grid g3">
+      <div><label for="f1">1 — casa</label>
+        <input type="number" id="f1" step="0.01" min="1.01" value="1.30" inputmode="decimal"></div>
+      <div><label for="fX">X — pareggio</label>
+        <input type="number" id="fX" step="0.01" min="1.01" value="5.50" inputmode="decimal"></div>
+      <div><label for="f2">2 — ospiti</label>
+        <input type="number" id="f2" step="0.01" min="1.01" value="9.50" inputmode="decimal"></div>
+    </div>
+    <div class="eyebrow" style="margin-top:14px">Over/Under 2.5 — facoltativo, affina la stima</div>
+    <div class="grid g2">
+      <div><label for="fOv">Over 2.5</label>
+        <input type="number" id="fOv" step="0.01" min="1.01" value="1.72" inputmode="decimal"></div>
+      <div><label for="fUn">Under 2.5</label>
+        <input type="number" id="fUn" step="0.01" min="1.01" value="2.05" inputmode="decimal"></div>
+    </div>
+  </div>
+
+  <div id="verdictBox"></div>
+
+  <div class="panel">
+    <div class="eyebrow">Cosa pensa davvero il banco</div>
+    <div id="fairBox"></div>
+  </div>
+
+  <div class="panel">
+    <div class="eyebrow">Quota equa sugli altri mercati</div>
+    <p class="lede" style="margin-bottom:12px">Derivati dagli stessi gol attesi, quindi
+    coerenti con l'1X2 qui sopra. <b>Serve almeno</b> è la quota oltre la quale la
+    giocata conviene, margine di sicurezza incluso.</p>
+    <div class="tbl-scroll"><table id="mktTable"></table></div>
+  </div>
+
+  <div class="panel">
+    <div class="eyebrow">Controlla una quota</div>
+    <div class="grid g2">
+      <div><label for="fMkt">Mercato</label><select id="fMkt"></select></div>
+      <div><label for="fPrice">Quota offerta</label>
+        <input type="number" id="fPrice" step="0.01" min="1.01" value="2.55" inputmode="decimal"></div>
+    </div>
+    <div id="checkBox"></div>
+    <div class="row-btn">
+      <button class="btn" id="btnAdd">Aggiungi alla schedina</button>
+    </div>
+  </div>
+
+  <div class="warn"><b>Cosa trova e cosa no.</b> Tutto qui dentro nasce dalle quote
+  1X2 <em>dello stesso banco</em>. L'app trova le incoerenze interne del suo
+  listino — mercati secondari prezzati con meno cura del principale — non un
+  vantaggio assoluto. Se l'1X2 del banco è giusto, non c'è niente da trovare.
+  Il modello statistico sui risultati storici, che è l'altra metà del progetto,
+  qui non c'è ancora.</div>
+</section>
+
+<!-- ============ SCHEDINA ============ -->
+<section id="p-schedina" role="tabpanel" aria-labelledby="tab-schedina" hidden>
+  <p class="lede">Le quote si moltiplicano, ma con loro si moltiplicano i margini
+  del banco. Qui vedi cosa costa davvero ogni gamba in più.</p>
+  <div class="panel">
+    <div class="eyebrow">Gambe</div>
+    <div id="legsBox"></div>
+  </div>
+  <div id="slipVerdict"></div>
+  <div class="panel">
+    <div class="eyebrow">Obiettivo quota</div>
+    <div class="grid g2">
+      <div><label for="fTarget">Quota da raggiungere</label>
+        <input type="number" id="fTarget" step="0.5" min="1.5" value="5" inputmode="decimal"></div>
+      <div><label for="fStake">Puntata (€)</label>
+        <input type="number" id="fStake" step="0.5" min="0.5" value="2" inputmode="decimal"></div>
+    </div>
+    <div id="targetBox"></div>
+  </div>
+  <div class="panel">
+    <div class="eyebrow">Quanto costa allungare</div>
+    <div class="tbl-scroll"><table id="frontTable"></table></div>
+    <p class="note" id="frontNote"></p>
+  </div>
+  <div class="row-btn">
+    <button class="btn" id="btnRegister">Registra la giocata</button>
+    <button class="btn ghost" id="btnClear">Svuota schedina</button>
+  </div>
+</section>
+
+<!-- ============ BONUS ============ -->
+<section id="p-bonus" role="tabpanel" aria-labelledby="tab-bonus" hidden>
+  <p class="lede">Il bonus multipla conviene solo se supera il margine che si
+  accumula gamba dopo gamba. La soglia è esatta e non dipende dalle quote che
+  scegli: <span class="num">1/(1−margine)^gambe</span>.</p>
+  <div class="panel">
+    <div class="eyebrow">Impostazioni</div>
+    <div class="grid g2">
+      <div><label for="fMargin">Margine medio per gamba</label>
+        <select id="fMargin">
+          <option value="0.03">3% — quote molto competitive</option>
+          <option value="0.04" selected>4% — tipico sulle quote corte</option>
+          <option value="0.05">5% — tipico sull'1X2</option>
+          <option value="0.07">7% — mercati secondari</option>
+        </select></div>
+      <div><label for="fMinLeg">Quota minima per gamba</label>
+        <input type="number" id="fMinLeg" step="0.01" min="1.01" value="1.25" inputmode="decimal"></div>
+    </div>
+    <p class="note">Valori di Goldbet confermati da fonti indipendenti: bonus da
+    5 eventi, quota minima 1,25, tetto di vincita 50.000 €, eventi oltre 7 giorni
+    esclusi. Le percentuali fra il 9° e il 29° evento non sono note e vengono
+    interpolate — sono marcate con <span class="num">~</span>.</p>
+  </div>
+  <div class="panel">
+    <div class="eyebrow">Offerto contro necessario</div>
+    <div class="tbl-scroll"><table id="bonusTable"></table></div>
+  </div>
+  <div class="panel">
+    <div class="eyebrow">Fin dove la schedina è incassabile</div>
+    <p class="lede" style="margin-bottom:12px">Questa risposta non dipende dalle
+    percentuali intermedie, che non conosciamo: solo dalla quota minima e dal
+    margine. Calcolata su 15 giocate a settimana.</p>
+    <div class="tbl-scroll"><table id="practTable"></table></div>
+    <p class="note" id="practNote"></p>
+  </div>
+</section>
+
+<!-- ============ REGISTRO ============ -->
+<section id="p-registro" role="tabpanel" aria-labelledby="tab-registro" hidden>
+  <p class="lede">Il rendimento vero, non quello che l'app prometteva.</p>
+  <div class="panel">
+    <div class="eyebrow">Capitale</div>
+    <div class="grid g2">
+      <div><label for="fWeekly">Budget settimanale (€)</label>
+        <input type="number" id="fWeekly" step="5" min="5" value="30" inputmode="decimal"></div>
+      <div><label for="fBankroll">Capitale di stagione (€)</label>
+        <input type="number" id="fBankroll" step="50" min="50" value="1200" inputmode="decimal"></div>
+    </div>
+    <p class="note">Kelly dimensiona sul capitale di stagione, non sul budget
+    settimanale: chi versa 30 € a settimana per una stagione rischia circa
+    1.200 €, non 30. Il budget settimanale resta come tetto di spesa.</p>
+  </div>
+  <div class="panel">
+    <div class="eyebrow">Andamento</div>
+    <div id="statsBox"></div>
+  </div>
+  <div class="panel">
+    <div class="eyebrow">Giocate</div>
+    <div id="logBox"></div>
+  </div>
+  <div id="storeNote"></div>
+</section>
+
+<footer>
+  I conti di questa pagina sono gli stessi verificati nel motore Python del
+  progetto. Il valore atteso mostrato serve a ordinare le giocate dalla migliore
+  alla peggiore, non a prevedere quanto guadagnerai. Con un banco efficiente
+  resta negativo.
+</footer>
+</div>
+
+<script>
+"use strict";
+/* ---------- motore (identico alla versione Python, verificato sui test) ---------- */
+var MAXG=15, RHO=-0.11;
+function poissonPmf(lam,n){var o=new Float64Array(n+1),t=Math.exp(-lam);o[0]=t;
+  for(var k=1;k<=n;k++){t=t*lam/k;o[k]=t}return o}
+function scoreMatrix(lam,mu,rho,maxg){rho=rho==null?RHO:rho;maxg=maxg||MAXG;
+  var px=poissonPmf(lam,maxg),py=poissonPmf(mu,maxg),m=[],tot=0,x,y;
+  for(x=0;x<=maxg;x++){m.push(new Float64Array(maxg+1));
+    for(y=0;y<=maxg;y++)m[x][y]=px[x]*py[y]}
+  m[0][0]*=1-lam*mu*rho;m[0][1]*=1+lam*rho;m[1][0]*=1+mu*rho;m[1][1]*=1-rho;
+  for(x=0;x<=maxg;x++)for(y=0;y<=maxg;y++){if(m[x][y]<0)m[x][y]=0;tot+=m[x][y]}
+  for(x=0;x<=maxg;x++)for(y=0;y<=maxg;y++)m[x][y]/=tot;
+  return m}
+function outcome1x2(m){var h=0,d=0,a=0;
+  for(var x=0;x<m.length;x++)for(var y=0;y<m.length;y++){
+    if(x>y)h+=m[x][y];else if(x===y)d+=m[x][y];else a+=m[x][y]}
+  return{"1":h,"X":d,"2":a}}
+function overUnder(m,line){var o=0,u=0;
+  for(var x=0;x<m.length;x++)for(var y=0;y<m.length;y++){
+    var t=x+y;if(t>line)o+=m[x][y];else if(t<line)u+=m[x][y]}
+  return{over:o,under:u}}
+function btts(m){var b=0;for(var x=1;x<m.length;x++)for(var y=1;y<m.length;y++)b+=m[x][y];
+  return{goal:b,nogoal:1-b}}
+function asianHandicap(m,line){
+  if(Math.abs(line*2-Math.round(line*2))>1e-9){
+    var a=asianHandicap(m,line-0.25),b=asianHandicap(m,line+0.25);
+    return{casa:(a.casa+b.casa)/2,ospiti:(a.ospiti+b.ospiti)/2,rimborso:(a.rimborso+b.rimborso)/2}}
+  var w=0,l=0,p=0;
+  for(var x=0;x<m.length;x++)for(var y=0;y<m.length;y++){var adj=x-y+line;
+    if(adj>1e-9)w+=m[x][y];else if(adj<-1e-9)l+=m[x][y];else p+=m[x][y]}
+  return{casa:w,ospiti:l,rimborso:p}}
+function shinDevig(prices){
+  var keys=Object.keys(prices),q=keys.map(function(k){return 1/prices[k]});
+  var bs=q.reduce(function(a,b){return a+b},0),out={};
+  if(bs<=1){keys.forEach(function(k,i){out[k]=q[i]/bs});return out}
+  function pOfZ(z){return q.map(function(qi){
+    var inner=z*z+4*(1-z)*qi*qi/bs;return(Math.sqrt(inner)-z)/(2*(1-z))})}
+  function f(z){return pOfZ(z).reduce(function(a,b){return a+b},0)-1}
+  var lo=1e-12,hi=0.9;
+  if(f(lo)*f(hi)>0){keys.forEach(function(k,i){out[k]=q[i]/bs});return out}
+  for(var i=0;i<200;i++){var mid=(lo+hi)/2;if(f(lo)*f(mid)<=0)hi=mid;else lo=mid}
+  var p=pOfZ((lo+hi)/2),s=p.reduce(function(a,b){return a+b},0);
+  keys.forEach(function(k,i){out[k]=p[i]/s});return out}
+function marginOf(prices){return Object.keys(prices).reduce(function(a,k){
+  return a+1/prices[k]},0)-1}
+function impliedGoals(target){
+  function err(lam,mu){var m=scoreMatrix(lam,mu,RHO,10),p=outcome1x2(m),e=0,d;
+    d=p["1"]-target["1"];e+=d*d;d=p["X"]-target["X"];e+=d*d;d=p["2"]-target["2"];e+=d*d;
+    if(target.over25!=null){d=overUnder(m,2.5).over-target.over25;e+=d*d}
+    return e}
+  var best={lam:1.4,mu:1.2,e:Infinity},i,j;
+  for(i=0;i<=40;i++)for(j=0;j<=40;j++){
+    var lam=0.15+i*(4.05/40),mu=0.15+j*(4.05/40),e=err(lam,mu);
+    if(e<best.e)best={lam:lam,mu:mu,e:e}}
+  var step=0.12,moves=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
+  for(var it=0;it<80;it++){var imp=false;
+    for(var k=0;k<moves.length;k++){
+      var nl=Math.max(0.05,best.lam+moves[k][0]*step),nm=Math.max(0.05,best.mu+moves[k][1]*step);
+      var ee=err(nl,nm);if(ee<best.e-1e-14){best={lam:nl,mu:nm,e:ee};imp=true}}
+    if(!imp)step/=2;if(step<1e-5)break}
+  return{lambda:best.lam,mu:best.mu,residuo:Math.sqrt(best.e)}}
+function kellyStake(p,price,pol){
+  var b=price-1;if(b<=0)return{raw:0,stake:0};
+  var raw=(p*price-1)/b;if(raw<=0)return{raw:raw,stake:0};
+  var ps=p*(1-pol.shrink)+(1/price)*pol.shrink;
+  var st=Math.min(Math.max(0,(ps*price-1)/b*pol.fraction)*pol.bankroll,pol.maxStake);
+  st=Math.floor(st/pol.step+1e-9)*pol.step;
+  return{raw:raw,stake:st<pol.minStake?0:st}}
+
+/* ---------- stato ---------- */
+var MIN_EV=0.03;
+var state={legs:[],log:[],weekly:30,bankroll:1200,margin:0.04,minLeg:1.25,
+  target:5,stake:2,edited:false,mktTouched:false};
+var BONUS_ANCHORS={5:4,8:15,30:250}, BONUS_MINLEGS=5;
+var db=null;
+
+function policy(){return{bankroll:state.bankroll,fraction:0.25,shrink:0.5,
+  minStake:2,step:0.5,maxStake:state.weekly*0.2}}
+function bonusAt(n){
+  if(n<BONUS_MINLEGS)return{v:0,est:false};
+  if(BONUS_ANCHORS[n]!=null)return{v:BONUS_ANCHORS[n],est:false};
+  var ks=Object.keys(BONUS_ANCHORS).map(Number).sort(function(a,b){return a-b});
+  var lo=null,hi=null;
+  ks.forEach(function(k){if(k<n)lo=k;if(hi===null&&k>n)hi=k});
+  if(lo===null)return{v:0,est:true};
+  if(hi===null)return{v:BONUS_ANCHORS[lo],est:true};
+  var a=Math.max(BONUS_ANCHORS[lo],0.1),b=Math.max(BONUS_ANCHORS[hi],0.1);
+  var w=(n-lo)/(hi-lo);
+  return{v:Math.exp(Math.log(a)+w*(Math.log(b)-Math.log(a))),est:true}}
+function bonusNeeded(n){return(1/Math.pow(1-state.margin,n)-1)*100}
+function fmt(n,d){return n.toFixed(d==null?2:d)}
+function pct(n,d){return(n*100).toFixed(d==null?1:d)+"%"}
+function sgn(n,d){return(n>=0?"+":"")+(n*100).toFixed(d==null?1:d)+"%"}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){
+  return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+
+/* ---------- analisi partita ---------- */
+function readMatch(){
+  var o1=parseFloat(document.getElementById("f1").value),
+      oX=parseFloat(document.getElementById("fX").value),
+      o2=parseFloat(document.getElementById("f2").value),
+      ov=parseFloat(document.getElementById("fOv").value),
+      un=parseFloat(document.getElementById("fUn").value);
+  if(!(o1>1&&oX>1&&o2>1))return null;
+  var prices={"1":o1,"X":oX,"2":o2};
+  var fair=shinDevig(prices), target={"1":fair["1"],"X":fair["X"],"2":fair["2"]};
+  var ouMargin=null;
+  if(ov>1&&un>1){var fo=shinDevig({o:ov,u:un});target.over25=fo.o;
+    ouMargin=marginOf({o:ov,u:un})}
+  var g=impliedGoals(target);
+  // quanto la ricostruzione si discosta dalle probabilita' di mercato: se lo
+  // scarto e' grosso, tutti i mercati derivati sotto ereditano quell'errore
+  var fit=outcome1x2(scoreMatrix(g.lambda,g.mu));
+  var scarto=Math.max(Math.abs(fit["1"]-fair["1"]),Math.abs(fit["X"]-fair["X"]),
+                      Math.abs(fit["2"]-fair["2"]));
+  return{prices:prices,fair:fair,goals:g,scarto:scarto,margin:marginOf(prices),ouMargin:ouMargin,
+    matrix:scoreMatrix(g.lambda,g.mu),
+    casa:document.getElementById("fCasa").value||"Casa",
+    ospiti:document.getElementById("fOspiti").value||"Ospiti"}}
+
+function marketRows(a){
+  var m=a.matrix,rows=[],p=outcome1x2(m);
+  rows.push(["Vittoria "+a.casa,p["1"],"1X2|1"]);
+  rows.push(["Pareggio",p["X"],"1X2|X"]);
+  rows.push(["Vittoria "+a.ospiti,p["2"],"1X2|2"]);
+  rows.push(["Doppia "+a.casa+" o pari",p["1"]+p["X"],"DC|1X"]);
+  rows.push(["Doppia pari o "+a.ospiti,p["X"]+p["2"],"DC|X2"]);
+  rows.push(["Doppia casa o ospiti",p["1"]+p["2"],"DC|12"]);
+  [1.5,2.5,3.5].forEach(function(l){var ou=overUnder(m,l);
+    rows.push(["Over "+l,ou.over,"OU|Over "+l]);
+    rows.push(["Under "+l,ou.under,"OU|Under "+l])});
+  var bb=btts(m);
+  rows.push(["Goal — segnano entrambe",bb.goal,"GG|Goal"]);
+  rows.push(["NoGoal",bb.nogoal,"GG|NoGoal"]);
+  // le linee a mezzo gol (±0.5) ripeterebbero esattamente l'1X2: inutili qui
+  [-1,-1.5,-2].forEach(function(l){var ah=asianHandicap(m,l);
+    rows.push(["Handicap "+a.casa+" ("+l+")",ah.casa,"AH|"+l])});
+  [1,1.5].forEach(function(l){var ah=asianHandicap(m,l);
+    rows.push(["Handicap "+a.ospiti+" (-"+l+")",ah.ospiti,"AH|"+l])});
+  return rows}
+// sotto il 2% o sopra il 98% la quota equa è dominata dall'errore di stima
+function usableRows(a){return marketRows(a).filter(function(r){
+  return r[1]>=0.02&&r[1]<=0.98})}
+
+function renderPartita(){
+  var a=readMatch(),vb=document.getElementById("verdictBox");
+  if(!a){vb.innerHTML='<div class="verdict neutral"><h3>Quote incomplete</h3>'+
+    '<p>Inserisci le tre quote 1X2 per vedere i conti.</p></div>';
+    document.getElementById("fairBox").innerHTML="";
+    document.getElementById("mktTable").innerHTML="";return}
+  window._a=a;
+  var g=a.goals;
+  vb.innerHTML='<div class="verdict neutral">'+
+    '<h3>Il banco si aspetta</h3>'+
+    '<div class="big">'+esc(a.casa)+' '+fmt(g.lambda,2)+' — '+fmt(g.mu,2)+' '+esc(a.ospiti)+'</div>'+
+    '<p>Gol attesi ricavati dalle sue stesse quote. Margine sull’1X2: '+
+    '<b class="num">'+pct(a.margin)+'</b>'+
+    (a.ouMargin!=null?', su Over/Under 2.5 <b class="num">'+pct(a.ouMargin)+'</b>':'')+
+    '.</p></div>';
+  var f=a.fair,h="";
+  [["1",a.casa],["X","Pareggio"],["2",a.ospiti]].forEach(function(kv){
+    h+='<div class="kv"><span>'+esc(kv[1])+' &mdash; probabilità vera '+pct(f[kv[0]])+
+       '</span><span>quota equa <b class="q">'+fmt(1/f[kv[0]])+'</b> · offerta '+
+       fmt(a.prices[kv[0]])+'</span></div>'});
+  document.getElementById("fairBox").innerHTML=h;
+
+  var rows=usableRows(a),t='<thead><tr><th>Mercato</th><th>Probabilità</th>'+
+    '<th>Quota equa</th><th>Serve almeno</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    t+='<tr><td>'+esc(r[0])+'</td><td>'+pct(r[1])+'</td><td class="q">'+fmt(1/r[1])+
+       '</td><td><b>'+fmt((1+MIN_EV)/r[1])+'</b></td></tr>'});
+  document.getElementById("mktTable").innerHTML=t+"</tbody>";
+
+  // il browser seleziona da solo la prima opzione, quindi il default d'esempio
+  // va imposto esplicitamente la prima volta
+  var sel=document.getElementById("fMkt"),prev=state.mktTouched?sel.value:"";
+  sel.innerHTML=rows.map(function(r){
+    return'<option value="'+esc(r[2])+'">'+esc(r[0])+'</option>'}).join("");
+  if(prev)sel.value=prev;
+  else{sel.value="GG|Goal";if(!sel.value&&sel.options.length)sel.selectedIndex=0}
+  renderCheck()}
+
+function currentSelection(){
+  var a=window._a;if(!a)return null;
+  var sel=document.getElementById("fMkt");
+  var rows=usableRows(a);
+  for(var i=0;i<rows.length;i++)if(rows[i][2]===sel.value)
+    return{nome:rows[i][0],p:rows[i][1],key:rows[i][2],a:a};
+  return null}
+
+function renderCheck(){
+  var box=document.getElementById("checkBox"),s=currentSelection();
+  var price=parseFloat(document.getElementById("fPrice").value);
+  if(!s||!(price>1)){box.innerHTML="";return}
+  var ev=s.p*price-1,k=kellyStake(s.p,price,policy());
+  var cls=ev>=MIN_EV?"pos":(ev>=0?"neutral":"neg");
+  var msg;
+  if(ev<0)msg="Sotto la quota equa di "+fmt(1/s.p)+". Il banco ci guadagna, non tu.";
+  else if(ev<MIN_EV)msg="Sopra la quota equa ma dentro il margine d’errore. Non basta.";
+  else if(k.stake===0)msg="Valore c’è, ma Kelly assegna meno della puntata minima di 2 €. Si salta.";
+  else msg="Punta <b class=\"num\">"+fmt(k.stake)+" €</b> — Kelly compresso su un capitale di "+
+    fmt(state.bankroll,0)+" €.";
+  box.innerHTML='<div class="verdict '+cls+'" style="margin-top:12px;margin-bottom:0">'+
+    '<h3>'+esc(s.nome)+' a quota '+fmt(price)+'</h3>'+
+    '<div class="big">'+sgn(ev)+'</div><p>'+msg+'</p></div>'}
+
+/* ---------- schedina ---------- */
+function slipStats(legs){
+  var q=1,p=1,byMatch={};
+  legs.forEach(function(l){q*=l.price;p*=l.p;byMatch[l.match]=(byMatch[l.match]||0)+1});
+  var qual=legs.filter(function(l){return l.price>=state.minLeg}).length;
+  var bn=bonusAt(qual),mult=1+bn.v/100;
+  return{quota:q,prob:p,bonus:bn.v,bonusEst:bn.est,mult:mult,eff:q*mult,
+    ev:p*q*mult-1,dup:Object.keys(byMatch).filter(function(k){return byMatch[k]>1}).length}}
+
+function bestSubset(legs,target){
+  var n=legs.length,best=null;
+  for(var mask=1;mask<(1<<n);mask++){
+    var sub=[];for(var i=0;i<n;i++)if(mask&(1<<i))sub.push(legs[i]);
+    var seen={},dup=false;
+    for(var j=0;j<sub.length;j++){if(seen[sub[j].match]){dup=true;break}seen[sub[j].match]=1}
+    if(dup)continue;
+    var s=slipStats(sub);
+    if(s.eff<target-1e-9)continue;
+    if(!best||s.prob>best.s.prob)best={sub:sub,s:s}}
+  return best}
+
+function frontier(legs,target){
+  var n=legs.length,byCount={};
+  for(var mask=1;mask<(1<<n);mask++){
+    var sub=[];for(var i=0;i<n;i++)if(mask&(1<<i))sub.push(legs[i]);
+    var seen={},dup=false;
+    for(var j=0;j<sub.length;j++){if(seen[sub[j].match]){dup=true;break}seen[sub[j].match]=1}
+    if(dup)continue;
+    var s=slipStats(sub);
+    if(s.eff<target-1e-9)continue;
+    var c=sub.length;
+    if(!byCount[c]||s.prob>byCount[c].s.prob)byCount[c]={sub:sub,s:s}}
+  return byCount}
+
+function renderSchedina(){
+  var box=document.getElementById("legsBox");
+  if(!state.legs.length){
+    box.innerHTML='<div class="empty">Nessuna gamba. Analizza una partita e usa<br>'+
+      '&laquo;Aggiungi alla schedina&raquo;.</div>';
+    document.getElementById("slipVerdict").innerHTML="";
+    document.getElementById("targetBox").innerHTML="";
+    document.getElementById("frontTable").innerHTML="";
+    document.getElementById("frontNote").textContent="";return}
+  box.innerHTML=state.legs.map(function(l,i){
+    var ev=l.p*l.price-1;
+    return'<div class="leg"><div><div class="leg-m">'+esc(l.nome)+'</div>'+
+      '<div class="leg-s">'+esc(l.match)+' &middot; quota <b class="num">'+fmt(l.price)+
+      '</b> &middot; <span class="num">'+pct(l.p)+'</span> &middot; '+
+      '<span class="'+(ev>=0?"":"")+'">EV <b class="num">'+sgn(ev)+'</b></span></div></div>'+
+      '<button class="btn ghost sm" data-rm="'+i+'">Togli</button></div>'}).join("");
+  Array.prototype.forEach.call(box.querySelectorAll("[data-rm]"),function(b){
+    b.addEventListener("click",function(){
+      state.legs.splice(parseInt(b.getAttribute("data-rm"),10),1);renderSchedina()})});
+
+  var s=slipStats(state.legs),stake=parseFloat(document.getElementById("fStake").value)||2;
+  var cls=s.ev>=0?"pos":"neg";
+  var neg=state.legs.filter(function(l){return l.p*l.price-1<0}).length;
+  var warn="";
+  if(state.legs.length>1){
+    var singlesEV=state.legs.reduce(function(a,l){return a+(stake/state.legs.length)*(l.p*l.price-1)},0);
+    if(singlesEV>stake*s.ev)warn+='<div class="warn">Giocate come singole le stesse '+
+      'selezioni rendono <b class="num">'+fmt(singlesEV)+' €</b> attesi contro '+
+      '<b class="num">'+fmt(stake*s.ev)+' €</b> della multipla.</div>';
+    if(neg)warn+='<div class="warn">'+neg+' gamb'+(neg===1?"a":"e")+' su '+state.legs.length+
+      ' ha valore atteso negativo da sola: trascina giù tutta la multipla.</div>';
+    if(s.dup)warn+='<div class="warn">Due gambe sulla stessa partita sono correlate: '+
+      'quasi nessun banco le accetta in multipla, e qui la probabilità è '+
+      'sottostimata perché calcolata come se fossero indipendenti.</div>'}
+  if(s.prob<0.10&&state.legs.length>1)warn+='<div class="warn">Probabilità di vincita '+
+    pct(s.prob)+': in media una giocata vincente ogni <b class="num">'+
+    Math.round(1/s.prob)+'</b> tentativi.</div>';
+  document.getElementById("slipVerdict").innerHTML='<div class="verdict '+cls+'">'+
+    '<h3>'+state.legs.length+' gamb'+(state.legs.length===1?"a":"e")+
+    ' &middot; quota '+fmt(s.eff)+(s.bonus>0?' (bonus +'+fmt(s.bonus,0)+'%'+(s.bonusEst?'~':'')+')':'')+
+    '</h3><div class="big">'+sgn(s.ev)+'</div>'+
+    '<p>Vince <b class="num">'+pct(s.prob)+'</b> delle volte — una ogni '+
+    '<b class="num">'+fmt(1/s.prob,1)+'</b> tentativi. Con '+fmt(stake)+' € punti, '+
+    'incassi <b class="num">'+fmt(stake*s.eff)+' €</b>.</p></div>'+warn;
+
+  var target=parseFloat(document.getElementById("fTarget").value)||5;
+  var best=bestSubset(state.legs,target),tb=document.getElementById("targetBox");
+  if(!best){tb.innerHTML='<p class="note">Con queste gambe non si arriva a quota '+
+    fmt(target)+'. Aggiungine, oppure scegli selezioni a quota più alta.</p>'}
+  else{
+    tb.innerHTML='<p class="note">La combinazione più probabile che arriva a quota '+
+      fmt(target)+' usa <b>'+best.sub.length+' gamb'+(best.sub.length===1?"a":"e")+'</b>: '+
+      best.sub.map(function(l){return esc(l.nome)}).join(" + ")+'. Quota '+
+      fmt(best.s.eff)+', vince il <b class="num">'+pct(best.s.prob)+
+      '</b> delle volte, valore atteso <b class="num">'+sgn(best.s.ev)+'</b>.</p>'}
+
+  var fr=frontier(state.legs,target),ks=Object.keys(fr).map(Number).sort(function(a,b){return a-b});
+  if(!ks.length){document.getElementById("frontTable").innerHTML="";
+    document.getElementById("frontNote").textContent=
+      "Servono più gambe per raggiungere l’obiettivo.";}
+  else{
+    var t='<thead><tr><th>Gambe</th><th>Quota</th><th>P(vincita)</th>'+
+      '<th>1 volta su</th><th>EV</th></tr></thead><tbody>';
+    var bestK=ks.reduce(function(a,b){return fr[a].s.prob>=fr[b].s.prob?a:b});
+    ks.forEach(function(k){var s2=fr[k].s;
+      t+='<tr'+(k===bestK?' class="hl"':'')+'><td>'+k+'</td><td class="q">'+fmt(s2.eff)+
+        '</td><td>'+pct(s2.prob)+'</td><td>'+fmt(1/s2.prob,1)+'</td><td class="'+
+        (s2.ev>=0?"pos":"neg")+'">'+sgn(s2.ev)+'</td></tr>'});
+    document.getElementById("frontTable").innerHTML=t+"</tbody>";
+    document.getElementById("frontNote").innerHTML="Stessa vincita in ogni riga: "+
+      "cambia solo quanto è probabile incassarla. La riga evidenziata è la "+
+      "più probabile.";}}
+
+/* ---------- bonus ---------- */
+function renderBonus(){
+  var t='<thead><tr><th>Gambe</th><th>Offerto</th><th>Serve</th><th>Esito</th></tr></thead><tbody>';
+  for(var n=5;n<=30;n+=(n<12?1:(n<20?2:5))){
+    var b=bonusAt(n),need=bonusNeeded(n),ok=b.v>=need;
+    t+='<tr'+(ok?' class="hl"':'')+'><td>'+n+'</td><td>+'+fmt(b.v,0)+'%'+(b.est?'~':'')+
+      '</td><td>+'+fmt(need,0)+'%</td><td class="'+(ok?"pos":"neg")+'">'+
+      (ok?"conviene":"non basta")+'</td></tr>'}
+  document.getElementById("bonusTable").innerHTML=t+"</tbody>";
+
+  var p='<thead><tr><th>Vincita ogni</th><th>Gambe max</th><th>Quota</th>'+
+    '<th>Bonus serve</th></tr></thead><tbody>',first=null;
+  [10,25,50,100,250,1000].forEach(function(ogni){
+    var n=Math.floor(Math.log(1/ogni)/Math.log((1-state.margin)/state.minLeg));
+    if(n<1)return;
+    if(ogni===50)first=n;
+    p+='<tr><td>'+ogni+' tentativi</td><td>'+n+'</td><td class="q">'+
+      fmt(Math.pow(state.minLeg,n),1)+'</td><td>+'+fmt(bonusNeeded(n),0)+'%</td></tr>'});
+  document.getElementById("practTable").innerHTML=p+"</tbody>";
+  if(first){var off=bonusAt(first);
+    document.getElementById("practNote").innerHTML="A "+first+" gambe — una vincita "+
+      "ogni cinquanta tentativi, circa tre settimane di gioco — servirebbe "+
+      "<b class=\"num\">+"+fmt(bonusNeeded(first),0)+"%</b> e l’offerta è intorno a "+
+      "<b class=\"num\">+"+fmt(off.v,0)+"%</b>. Il divario si chiude solo verso le trenta "+
+      "gambe, dove però la vincita non arriva più."}}
+
+/* ---------- registro ---------- */
+function weekKey(d){var t=new Date(d);var day=(t.getDay()+6)%7;
+  t.setDate(t.getDate()-day);return t.toISOString().slice(0,10)}
+function renderRegistro(){
+  var open=state.log.filter(function(g){return g.esito==="aperta"});
+  var closed=state.log.filter(function(g){return g.esito!=="aperta"});
+  var staked=closed.reduce(function(a,g){return a+g.stake},0);
+  var ret=closed.reduce(function(a,g){return a+(g.esito==="vinta"?g.stake*g.quota:0)},0);
+  var promised=closed.reduce(function(a,g){return a+g.stake*g.ev},0);
+  var s='<div class="kv"><span>Giocate chiuse</span><span>'+closed.length+
+    ' &middot; '+open.length+' aperte</span></div>'+
+    '<div class="kv"><span>Puntato</span><span>'+fmt(staked)+' €</span></div>'+
+    '<div class="kv"><span>Incassato</span><span>'+fmt(ret)+' €</span></div>'+
+    '<div class="kv"><span>Profitto</span><span class="'+(ret-staked>=0?"":"")+'">'+
+    (ret-staked>=0?"+":"")+fmt(ret-staked)+' €</span></div>';
+  if(staked>0)s+='<div class="kv"><span>Rendimento reale</span><span>'+
+    sgn((ret-staked)/staked)+'</span></div>'+
+    '<div class="kv"><span>Rendimento promesso dall’app</span><span>'+
+    sgn(promised/staked)+'</span></div>';
+  document.getElementById("statsBox").innerHTML=s+
+    (staked>0?'<p class="note">Lo scarto fra i due è la misura di quanto l’app '+
+     'sovrastima sé stessa. Serve una cinquantina di giocate perché significhi qualcosa.</p>':'');
+
+  if(!state.log.length){document.getElementById("logBox").innerHTML=
+    '<div class="empty">Nessuna giocata registrata.</div>';return}
+  document.getElementById("logBox").innerHTML=state.log.slice().reverse()
+    .map(function(g){
+      var pill=g.esito==="vinta"?'<span class="pill ok">vinta</span>':
+        g.esito==="persa"?'<span class="pill no">persa</span>':'<span class="pill">aperta</span>';
+      return'<div class="leg"><div><div class="leg-m">'+esc(g.titolo)+' '+pill+'</div>'+
+        '<div class="leg-s">'+g.data+' &middot; '+fmt(g.stake)+' € a quota '+
+        '<b class="num">'+fmt(g.quota)+'</b> &middot; EV '+sgn(g.ev)+'</div></div>'+
+        (g.esito==="aperta"?'<div style="display:flex;gap:5px">'+
+          '<button class="btn ghost sm" data-win="'+g.id+'">Vinta</button>'+
+          '<button class="btn ghost sm" data-lose="'+g.id+'">Persa</button></div>':
+          '<button class="btn ghost sm" data-del="'+g.id+'">Togli</button>')+'</div>'}).join("");
+  var lb=document.getElementById("logBox");
+  Array.prototype.forEach.call(lb.querySelectorAll("[data-win]"),function(b){
+    b.addEventListener("click",function(){settle(b.getAttribute("data-win"),"vinta")})});
+  Array.prototype.forEach.call(lb.querySelectorAll("[data-lose]"),function(b){
+    b.addEventListener("click",function(){settle(b.getAttribute("data-lose"),"persa")})});
+  Array.prototype.forEach.call(lb.querySelectorAll("[data-del]"),function(b){
+    b.addEventListener("click",function(){removeBet(b.getAttribute("data-del"))})})}
+
+function renderBudget(){
+  var wk=weekKey(new Date());
+  var spent=state.log.filter(function(g){return weekKey(g.data)===wk})
+    .reduce(function(a,g){return a+g.stake},0);
+  document.getElementById("budgetLabel").innerHTML='settimana <b>'+fmt(spent)+
+    '</b> / '+fmt(state.weekly,0)+' €';
+  document.getElementById("budgetBar").style.width=
+    Math.min(100,state.weekly?spent/state.weekly*100:0)+"%"}
+
+/* ---------- persistenza ---------- */
+function lsGet(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function saveSettings(){
+  var s={weekly:state.weekly,bankroll:state.bankroll,margin:state.margin,minLeg:state.minLeg};
+  lsSet("qv.settings",s);
+  if(db)db.doc("impostazioni/mie").set(s).catch(function(){})}
+function persistBet(g){
+  lsSet("qv.log",state.log);
+  if(db)db.doc("giocate/"+g.id).set(g).catch(function(){})}
+function persistAll(){
+  lsSet("qv.log",state.log);
+  if(db)state.log.forEach(function(g){db.doc("giocate/"+g.id).set(g).catch(function(){})})}
+
+function settle(id,esito){
+  state.log.forEach(function(g){if(g.id===id){g.esito=esito;persistBet(g)}});
+  renderRegistro();renderBudget()}
+function removeBet(id){
+  state.log=state.log.filter(function(g){return g.id!==id});
+  lsSet("qv.log",state.log);
+  if(db)db.doc("giocate/"+id).delete().catch(function(){});
+  renderRegistro();renderBudget()}
+
+/* ---------- eventi ---------- */
+function showTab(name){
+  ["partita","schedina","bonus","registro"].forEach(function(t){
+    var btn=document.getElementById("tab-"+t),pan=document.getElementById("p-"+t);
+    var on=t===name;btn.setAttribute("aria-selected",on?"true":"false");pan.hidden=!on});
+  if(name==="schedina")renderSchedina();
+  if(name==="bonus")renderBonus();
+  if(name==="registro")renderRegistro();
+  lsSet("qv.tab",name)}
+
+["partita","schedina","bonus","registro"].forEach(function(t){
+  document.getElementById("tab-"+t).addEventListener("click",function(){showTab(t)})});
+
+["f1","fX","f2","fOv","fUn","fCasa","fOspiti"].forEach(function(id){
+  document.getElementById(id).addEventListener("input",function(){
+    if(!state.edited){state.edited=true;document.getElementById("exBadge").hidden=true}
+    renderPartita()})});
+document.getElementById("fMkt").addEventListener("change",function(){
+  state.mktTouched=true;renderCheck()});
+document.getElementById("fPrice").addEventListener("input",renderCheck);
+
+document.getElementById("btnAdd").addEventListener("click",function(){
+  var s=currentSelection(),price=parseFloat(document.getElementById("fPrice").value);
+  if(!s||!(price>1))return;
+  state.legs.push({nome:s.nome,match:s.a.casa+" - "+s.a.ospiti,price:price,p:s.p,key:s.key});
+  showTab("schedina")});
+
+["fTarget","fStake"].forEach(function(id){
+  document.getElementById(id).addEventListener("input",renderSchedina)});
+document.getElementById("btnClear").addEventListener("click",function(){
+  state.legs=[];renderSchedina()});
+document.getElementById("btnRegister").addEventListener("click",function(){
+  if(!state.legs.length)return;
+  var s=slipStats(state.legs),stake=parseFloat(document.getElementById("fStake").value)||2;
+  var g={id:"b"+Date.now()+Math.floor(Math.random()*1000),
+    data:new Date().toISOString().slice(0,10),
+    titolo:state.legs.length===1?state.legs[0].nome:state.legs.length+" gambe",
+    legs:state.legs.map(function(l){return{nome:l.nome,match:l.match,price:l.price,p:l.p}}),
+    quota:s.eff,prob:s.prob,ev:s.ev,stake:stake,esito:"aperta"};
+  state.log.push(g);persistBet(g);state.legs=[];
+  renderSchedina();renderBudget();showTab("registro")});
+
+document.getElementById("fMargin").addEventListener("change",function(){
+  state.margin=parseFloat(this.value);saveSettings();renderBonus()});
+document.getElementById("fMinLeg").addEventListener("input",function(){
+  var v=parseFloat(this.value);if(v>1){state.minLeg=v;saveSettings();renderBonus();
+    renderSchedina()}});
+document.getElementById("fWeekly").addEventListener("input",function(){
+  var v=parseFloat(this.value);if(v>0){state.weekly=v;saveSettings();renderBudget()}});
+document.getElementById("fBankroll").addEventListener("input",function(){
+  var v=parseFloat(this.value);if(v>0){state.bankroll=v;saveSettings();renderCheck()}});
+
+/* ---------- avvio ---------- */
+function boot(){
+  var s=lsGet("qv.settings",null);
+  if(s){state.weekly=s.weekly||30;state.bankroll=s.bankroll||1200;
+    state.margin=s.margin||0.04;state.minLeg=s.minLeg||1.25;
+    document.getElementById("fWeekly").value=state.weekly;
+    document.getElementById("fBankroll").value=state.bankroll;
+    document.getElementById("fMargin").value=String(state.margin);
+    document.getElementById("fMinLeg").value=state.minLeg}
+  state.log=lsGet("qv.log",[]);
+  renderPartita();renderBudget();
+  var t=lsGet("qv.tab","partita");
+  if(["partita","schedina","bonus","registro"].indexOf(t)>=0&&t!=="partita")showTab(t);
+}
+boot();
+
+/* le giocate vivono anche fuori dal browser, così non si perdono cambiando
+   dispositivo e posso rileggerle per calcolare il rendimento vero */
+if(window.claude&&window.claude.use){
+  window.claude.use("db").then(function(d){
+    if(!d)return;db=d;
+    document.getElementById("storeNote").innerHTML=
+      '<p class="note">Le giocate sono salvate fuori dal browser: le ritrovi anche '+
+      'cambiando dispositivo.</p>';
+    d.collection("giocate").get().then(function(docs){
+      var arr=(docs||[]).map(function(x){return x.data||x}).filter(function(x){return x&&x.id});
+      if(arr.length){
+        var known={};state.log.forEach(function(g){known[g.id]=1});
+        arr.forEach(function(g){if(!known[g.id])state.log.push(g)});
+        state.log.sort(function(a,b){return a.id<b.id?-1:1});
+        lsSet("qv.log",state.log);renderRegistro();renderBudget()}
+      else persistAll();
+    }).catch(function(){});
+    d.doc("impostazioni/mie").get().then(function(doc){
+      var v=doc&&(doc.data||doc);
+      if(v&&v.weekly){state.weekly=v.weekly;state.bankroll=v.bankroll||state.bankroll;
+        document.getElementById("fWeekly").value=state.weekly;
+        document.getElementById("fBankroll").value=state.bankroll;renderBudget()}
+    }).catch(function(){});
+  }).catch(function(){});
+}
+</script>
