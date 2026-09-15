@@ -888,16 +888,36 @@ function normNome(x){
   return String(x||"").toLowerCase()
     .normalize("NFKD").replace(/[̀-ͯ]/g,"")
     .replace(/[^a-z0-9 ]/g," ")
-    .replace(/\b(fc|cf|ac|as|ss|ssc|us|sc|afc|cd|rcd|rc|ud|sd|club|calcio|de|the)\b/g," ")
+    .replace(/\b(fc|cf|ac|as|ss|ssc|us|sc|afc|cd|rcd|rc|ud|sd|club|calcio|de|the|and)\b/g," ")
     .split(/\s+/).filter(Boolean).join(" ")}
+
+/* Sigle che nessuna regola generale puo' ricondurre al nome esteso. */
+var ALIAS_API={
+  "qpr":"queens park rangers","wolves":"wolverhampton wanderers",
+  "west brom":"west bromwich albion","sheffield weds":"sheffield wednesday",
+  "psg":"paris saint germain","spurs":"tottenham hotspur"};
+
+/* Due parole si corrispondono anche se una e' l'abbreviazione dell'altra:
+   "man" sta per "manchester", "nott" per "nottingham", "brom" per "bromwich".
+   Senza questa regola meta' del campionato inglese resta scollegata, perche' lo
+   storico usa forme accorciate e le API il nome per esteso. */
+function paroleCorrispondono(a,b){
+  if(a===b)return true;
+  var corta=a.length<=b.length?a:b, lunga=a.length<=b.length?b:a;
+  return corta.length>=3&&lunga.indexOf(corta)===0}
+
 function simile(a,b){
   var x=normNome(a),y=normNome(b);
   if(!x||!y)return 0;
+  if(ALIAS_API[x])x=normNome(ALIAS_API[x]);
+  if(ALIAS_API[y])y=normNome(ALIAS_API[y]);
   if(x===y)return 1;
-  if(x.indexOf(y)>=0||y.indexOf(x)>=0)return 0.85;
+  if(x.indexOf(y)>=0||y.indexOf(x)>=0)return 0.9;
   var tx=x.split(" "),ty=y.split(" "),c=0;
-  tx.forEach(function(t){if(ty.indexOf(t)>=0)c++});
-  return c/Math.max(1,Math.min(tx.length,ty.length))}
+  tx.forEach(function(t){
+    for(var i=0;i<ty.length;i++)if(paroleCorrispondono(t,ty[i])){c++;return}});
+  var overlap=c/Math.max(1,Math.min(tx.length,ty.length));
+  return Math.max(overlap,0.9*overlap)}
 
 function renderAuto(){
   var box=document.getElementById("autoBox");if(!box)return;
@@ -948,7 +968,7 @@ function scaricaQuote(){
     return DATI.partite.some(function(p){return p.div===d})});
   if(!divs.length){esito.innerHTML='<div class="warn">Nessuna divisione con partite in calendario.</div>';return}
   esito.innerHTML='<p class="note">Scarico '+divs.length+' campionati…</p>';
-  var fatti=0,agganciate=0,nuoveQuote=0,problemi=[];
+  var fatti=0,agganciate=0,nuoveQuote=0,problemi=[],rapporto=[];
   divs.forEach(function(d){
     var url="https://api.the-odds-api.com/v4/sports/"+SPORT_API[d]+
       "/odds?regions="+encodeURIComponent(reg)+"&markets="+mercati+"&oddsFormat=decimal&apiKey="+
@@ -962,6 +982,8 @@ function scaricaQuote(){
         (r.status===429?" (crediti esauriti)":"")));
       return r.json()}).then(function(dati){
       if(!Array.isArray(dati))throw new Error("risposta di forma inattesa");
+      var rip={div:d,eventi:dati.length,agg:0,scartati:[],fuori:0,senzaBook:0};
+      rapporto.push(rip);
       dati.forEach(function(ev){
         var casa=ev.home_team,osp=ev.away_team;
         var cand=null,best=0;
@@ -969,8 +991,17 @@ function scaricaQuote(){
           if(p.div!==d)return;
           var sc=Math.min(simile(casa,p.casa),simile(osp,p.ospiti));
           if(sc>best){best=sc;cand=p}});
-        if(!cand||best<0.6)return;
-        agganciate++;
+        if(!cand||best<0.6){
+          // Due casi diversi che non vanno confusi. Somiglianza quasi nulla:
+          // e' semplicemente una partita fuori dai dieci giorni del nostro
+          // calendario, cosa del tutto normale. Somiglianza media: i nomi si
+          // assomigliano ma non abbastanza, e li' c'e' davvero da correggere.
+          if(best<0.3)rip.fuori++;
+          else if(rip.scartati.length<6)
+            rip.scartati.push(casa+" \u2013 "+osp+" (somiglianza "+best.toFixed(2)+")");
+          return}
+        agganciate++;rip.agg++;
+        if(!(ev.bookmakers||[]).length)rip.senzaBook++;
         (ev.bookmakers||[]).slice(0,4).forEach(function(bk){
           var nome=bk.title||bk.key;
           var h2h=(bk.markets||[]).filter(function(x){return x.key==="h2h"})[0];
@@ -1017,9 +1048,37 @@ function scaricaQuote(){
         '<br>Se l’errore parla di <i>fetch</i> o CORS, il fornitore non consente '+
         'le chiamate dal browser oppure sei nella versione online: in quel caso le '+
         'quote vanno inserite a mano.</div>';
-      if(!nuoveQuote&&!problemi.length)h+='<div class="warn">Nessuna partita '+
-        'agganciata: i nomi delle squadre della API non corrispondono a quelli del '+
-        'calendario. Non invento corrispondenze.</div>';
+      // Rapporto per campionato: senza, "non scarica l'Italia" resta
+      // indistinguibile da tre cause diverse.
+      if(rapporto.length){
+        h+='<div class="tbl-scroll" style="margin-top:10px"><table><thead><tr>'+
+          '<th>Campionato</th><th>Eventi</th><th>Agganciati</th></tr></thead><tbody>';
+        rapporto.forEach(function(r){
+          var col=(r.eventi===0||r.agg===0)?"neg":"pos";
+          h+='<tr><td>'+esc(r.div)+'</td><td>'+r.eventi+'</td><td class="'+col+'">'+
+            r.agg+(r.fuori?' <span style="color:var(--ink-faint)">('+r.fuori+
+            ' fuori periodo)</span>':'')+'</td></tr>'});
+        h+='</tbody></table></div>';
+        var vuoti=rapporto.filter(function(r){return r.eventi===0});
+        if(vuoti.length)h+='<div class="warn"><b>'+vuoti.map(function(r){return r.div}).join(", ")+
+          ': nessun evento restituito.</b> Di solito significa che quel campionato non '+
+          '\u00e8 nel piano gratuito, che la chiave non lo copre, oppure che non ci sono '+
+          'partite quotate in questo momento.</div>';
+        rapporto.filter(function(r){return r.scartati.length}).forEach(function(r){
+          h+='<div class="warn"><b>'+esc(r.div)+': '+r.scartati.length+' nom'+
+            (r.scartati.length===1?'e che non combacia':'i che non combaciano')+
+            '.</b><br>'+esc(r.scartati.join(" \u00b7 "))+
+            '<br>Mandameli e aggiungo la corrispondenza: non la indovino.</div>'});
+        var soloFuori=rapporto.filter(function(r){
+          return r.eventi>0&&r.agg===0&&!r.scartati.length});
+        if(soloFuori.length)h+='<div class="warn"><b>'+
+          soloFuori.map(function(r){return r.div}).join(", ")+
+          ': eventi ricevuti ma nessuno nei prossimi dieci giorni.</b> Le quote della '+
+          'API guardano piu\u2019 avanti del nostro calendario. Non \u00e8 un guasto.</div>';
+        var senzaB=rapporto.filter(function(r){return r.senzaBook>0});
+        if(senzaB.length)h+='<div class="warn">Alcuni eventi sono arrivati senza '+
+          'bookmaker: la regione scelta non ha quote per quel campionato. Prova a '+
+          'cambiare regione.</div>'}
       esito.innerHTML=h})})}
 
 /* ---- il banco su cui giochi ---- */
