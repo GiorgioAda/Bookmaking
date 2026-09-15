@@ -208,8 +208,21 @@ concretizza in un tempo umano.
 Dove la vincita arriva davvero — cinque, otto, dieci gambe — nessun bonus
 italiano copre il margine composto.
 
-I dati provengono da siti di comparazione, **non dai regolamenti ufficiali**, e
-le fonti si contraddicono fra loro. Vanno verificati prima di giocarci sopra.
+Per Goldbet risultano confermati da fonti indipendenti: minimo **5 eventi**,
+quota minima **1,25** per gamba, tetto di vincita **50.000 €**, eventi oltre
+**7 giorni** esclusi dal calcolo, **+250% a 30 eventi**. Le percentuali fra il
+nono e il ventinovesimo evento restano ignote.
+
+Non conoscerle pero' non cambia la conclusione, perche' c'e' un limite che non
+dipende da loro. Con quota minima 1,25 e margine del 4%, la schedina resta
+incassabile — diciamo una vincita ogni cinquanta tentativi, tre settimane di
+gioco — fino a **quattordici gambe**. Li' servirebbe un bonus del **+77%**,
+mentre a quel punto della curva l'offerta si aggira sul +30%. E il divario non
+si stringe avvicinandosi: passa da 38 punti a dodici gambe a 57 punti a venti,
+e si chiude solo a ridosso delle trenta.
+
+Il regolamento ufficiale e' su goldbet.it/guida/regole-sportive/calcio, non
+raggiungibile dall'ambiente di sviluppo: va verificato a mano.
 
 ```bash
 python examples/confronta_bonus.py

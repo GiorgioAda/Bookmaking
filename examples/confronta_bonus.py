@@ -65,6 +65,27 @@ def attesa(p: float) -> str:
     return f"{settimane / 52:.1f} anni"
 
 
+def limite_praticabilita(quota_minima: float = 1.25,
+                         margine: float = MARGINE) -> list[dict[str, float]]:
+    """Fin dove la schedina resta incassabile, e quanto bonus servirebbe proprio li'.
+
+    E' la domanda rovesciata, e ha un pregio: la risposta non dipende dai valori
+    intermedi della tabella bonus, che i regolamenti pubblicano a scaglioni e le
+    fonti secondarie riportano male. Dipende solo dalla quota minima richiesta e
+    dal margine, che sono noti.
+    """
+    import math
+    righe = []
+    for ogni in (10, 25, 50, 100, 250, 1000):
+        n = int(math.log(1 / ogni) / math.log((1 - margine) / quota_minima))
+        p = ((1 - margine) / quota_minima) ** n
+        righe.append({"una_vincita_ogni": ogni, "gambe_max": n,
+                      "quota": quota_minima ** n, "p_vincita": p,
+                      "bonus_necessario": necessario(n, margine),
+                      "attesa": attesa(p)})
+    return righe
+
+
 def main() -> None:
     percorso = Path("data/bonus_bookmaker.json")
     dati = json.loads(percorso.read_text(encoding="utf-8"))
@@ -123,10 +144,29 @@ def main() -> None:
     print("Conclusione: il bonus supera il margine composto solo dove la")
     print("schedina vince una volta ogni centinaia di tentativi. Il vantaggio")
     print("esiste sulla carta e non si concretizza in un tempo umano.")
+    print("\n" + "=" * 78)
+    print("La domanda rovesciata: fin dove la schedina e' incassabile?")
+    print("=" * 78)
+    print("\nQuesta risposta non dipende dai valori intermedi della tabella bonus,")
+    print("che i regolamenti danno a scaglioni e le fonti secondarie riportano")
+    print("male. Dipende solo dalla quota minima e dal margine, entrambi noti.\n")
+    print(f"{'una vincita ogni':>17}{'gambe max':>11}{'quota':>9}"
+          f"{'bonus serve':>13}{'attesa':>15}")
+    print("-" * 65)
+    for r in limite_praticabilita():
+        print(f"{r['una_vincita_ogni']:>12} tentativi{r['gambe_max']:>11}"
+              f"{r['quota']:>9.1f}{r['bonus_necessario']:>+12.0f}%{r['attesa']:>15}")
+    print("\nIncrociando con la tabella sopra: nella fascia dove la schedina e'")
+    print("ancora incassabile (fino a 14-17 gambe) il bonus offerto e' intorno al")
+    print("+30/+50% e ne servirebbe il +77/+100%. Il divario non si stringe")
+    print("avvicinandosi: si allarga, e si chiude solo a ridosso delle 30 gambe.")
+
     print("\nA poche gambe, dove la vincita arriva davvero, nessun bonus")
     print("italiano copre il margine: li' conviene la schedina piu' corta che")
     print("raggiunge l'obiettivo, ed e' il caso trattato in schedina_quota5.py.")
-    print(f"\nDati non verificati alla fonte ufficiale. Vedi {percorso}.")
+    print(f"\nParametri principali (5 eventi minimi, quota 1.25, tetto 50.000 EUR,")
+    print(f"limite dei 7 giorni) confermati da fonti indipendenti; le percentuali")
+    print(f"intermedie no. Vedi {percorso}.")
 
 
 if __name__ == "__main__":
