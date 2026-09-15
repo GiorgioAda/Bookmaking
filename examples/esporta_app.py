@@ -71,9 +71,19 @@ def main(giorni: int = 10) -> None:
                         "quando": m.kickoff.isoformat(timespec="minutes"),
                         "casa": m.home, "ospiti": m.away, "noti": noti})
 
+    # Le tabelle bonus servono in app perche' una multipla si gioca su un solo
+    # bookmaker: quota, bonus e regole dipendono da quale.
+    bonus = json.loads(Path("data/bonus_bookmaker.json").read_text(encoding="utf-8"))
+    books = {k: {"gambe_minime": v["gambe_minime"],
+                 "quota_minima": v["quota_minima_per_gamba"],
+                 "ancoraggi": {int(a): b for a, b in v["ancoraggi"].items()},
+                 "nota": v.get("note")}
+             for k, v in bonus["bookmaker"].items()}
+
     dati = {"generato": oggi.isoformat(timespec="minutes"), "rho": rho,
             "squadre": squadre, "divisioni": divisioni, "partite": partite,
             "calendari_disponibili": sorted(of.available()),
+            "bookmaker": books,
             "prior_sconosciuta": {"att": -0.12, "dif": 0.12}}
     out = Path("app/dati.json")
     out.parent.mkdir(exist_ok=True)
