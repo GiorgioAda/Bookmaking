@@ -41,8 +41,10 @@ letto dalle condizioni del tuo conto e inserito in ``BonusSchedule``.
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 
@@ -69,6 +71,21 @@ class BonusSchedule:
     min_leg_price: float = 1.20
     min_legs: int = 2
     applies_to: str = "vincita"     # documentazione: quasi sempre sulla vincita
+
+    @classmethod
+    def from_file(cls, path: str | Path) -> "BonusSchedule":
+        """Carica la tabella bonus dal file del proprio conto.
+
+        Le chiavi di ``bonus_per_gambe`` sono numeri di gambe scritti come
+        stringhe, i valori sono la percentuale di bonus: 15 significa +15%.
+        Cosi' si copiano dalle condizioni del bookmaker senza conversioni.
+        """
+        dati = json.loads(Path(path).read_text(encoding="utf-8"))
+        tabella = {int(k): 1.0 + float(v) / 100.0
+                   for k, v in dati.get("bonus_per_gambe", {}).items()}
+        return cls(by_legs=tabella,
+                   min_leg_price=float(dati.get("quota_minima_per_gamba", 1.20)),
+                   min_legs=int(dati.get("gambe_minime", 2)))
 
     def multiplier(self, n_qualifying: int) -> float:
         if n_qualifying < self.min_legs or not self.by_legs:

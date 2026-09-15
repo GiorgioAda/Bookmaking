@@ -1,5 +1,7 @@
 # Bookmaking
 
+> **Devi solo far partire le cose? Leggi [AVVIO.md](AVVIO.md).**
+
 Motore di pronostici calcistici: modello statistico, stima della quota equa,
 ricerca del valore e gestione del bankroll.
 

@@ -52,13 +52,16 @@ def scarica(stagioni: list[str], verifica: bool
     per_nazione: dict[str, list[Match]] = {c: [] for c in COUNTRIES}
     quote: dict[str, list] = {}
     fonte = FootballDataCsv()
+    falliti: dict[str, list[str]] = {}
 
     for div in DIVISIONS:
         for stagione in stagioni:
             try:
                 testo = fonte._download(fonte.url_for(div.code, stagione))
             except Exception as exc:                      # noqa: BLE001
-                print(f"  [salto] {div.code} {stagione}: {exc}")
+                # Un motivo per tipo, non uno per stagione: se la rete non va,
+                # sessanta righe identiche non aiutano a capirlo.
+                falliti.setdefault(str(exc)[:80], []).append(f"{div.code} {stagione}")
                 continue
             try:
                 partite = fonte.parse(testo, div.code, stagione, verify=verifica)
@@ -68,6 +71,10 @@ def scarica(stagioni: list[str], verifica: bool
             per_nazione[div.country].extend(partite)
             quote.update(fonte.parse_closing_odds(testo, div.code, stagione))
             print(f"  {div.code} {stagione}: {len(partite)} partite")
+
+    for motivo, elenco in falliti.items():
+        print(f"  [non scaricati] {len(elenco)} file: {motivo}")
+        print(f"                  es. {', '.join(elenco[:4])}")
     return per_nazione, quote
 
 
