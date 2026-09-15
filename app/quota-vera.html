@@ -175,6 +175,8 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
 .back{font-family:var(--disp);font-size:11.5px;font-weight:600;color:var(--ink-soft);
   background:none;border:0;padding:0 0 10px;cursor:pointer;letter-spacing:.03em}
 .back:focus-visible{outline:2px solid var(--accent)}
+.mkt-row td{padding:12px 0 5px;border-bottom:0}
+.mkt-row+tr td{border-top:1px solid var(--rule)}
 .stamp{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:14px}
 </style>
 
@@ -227,11 +229,15 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
     <button class="back" id="btnBack">&larr; tutte le partite</button>
     <div id="detHead"></div>
     <div class="panel">
-      <div class="eyebrow">Quote dei bookmaker</div>
+      <div class="eyebrow">Mercato</div>
+      <div class="filters" id="mktPicker" style="margin-bottom:0"></div>
+    </div>
+    <div class="panel" id="bkPanel">
+      <div class="eyebrow" id="bkTitolo">Quote</div>
       <p class="lede" style="margin-bottom:10px">Più bookmaker inserisci, più la stima
       è solida. Il confronto fra i loro prezzi è la sola fonte di vantaggio che non
       dipende dall'indovinare il risultato.</p>
-      <div class="bk-h"><span>Bookmaker</span><span>1</span><span>X</span><span>2</span><span></span></div>
+      <div class="bk-h" id="bkHead"></div>
       <div id="bkBox"></div>
       <div class="row-btn"><button class="btn ghost sm" id="btnAddBook">+ bookmaker</button></div>
     </div>
@@ -239,6 +245,15 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
     <div class="panel" id="detBestPanel" hidden>
       <div class="eyebrow">Dove conviene giocare</div>
       <div id="bestBox"></div>
+    </div>
+    <div class="panel">
+      <div class="eyebrow">Quota equa su tutti gli altri mercati</div>
+      <p class="lede" style="margin-bottom:10px">Ricavati dai gol attesi che le tue
+      quote implicano, quindi coerenti fra loro per costruzione. Sono i mercati dove
+      i bookmaker prezzano con meno cura, ed è lì che il valore si nasconde.
+      Tocca un mercato per inserirne le quote.</p>
+      <div id="derivBox"></div>
+      <p class="note" id="derivNota"></p>
     </div>
     <div class="panel">
       <div class="eyebrow">Confronto con il modello</div>
@@ -396,6 +411,97 @@ function kellyStake(p,price,pol){
   st=Math.floor(st/pol.step+1e-9)*pol.step;
   return{raw:raw,stake:st<pol.minStake?0:st}}
 
+/* ---- registro dei mercati ----
+   Ogni mercato dichiara le sue selezioni e a quanto sommano le probabilita'
+   in un mercato equo. Quasi sempre e' 1, perche' gli esiti sono una partizione;
+   la doppia chance fa eccezione e somma a 2, dato che ogni esito compare in due
+   delle tre voci. Sbagliare quel numero significa togliere il margine male e
+   inventare valore che non c'e'. */
+var MERCATI=[
+  {id:"1X2",nome:"Esito finale",sel:["1","X","2"],somma:1},
+  {id:"DC",nome:"Doppia chance",sel:["1X","12","X2"],somma:2},
+  {id:"GG",nome:"Goal / NoGoal",sel:["Goal","NoGoal"],somma:1},
+  {id:"OU0.5",nome:"Over/Under 0.5",sel:["Over","Under"],somma:1,linea:0.5},
+  {id:"OU1.5",nome:"Over/Under 1.5",sel:["Over","Under"],somma:1,linea:1.5},
+  {id:"OU2.5",nome:"Over/Under 2.5",sel:["Over","Under"],somma:1,linea:2.5},
+  {id:"OU3.5",nome:"Over/Under 3.5",sel:["Over","Under"],somma:1,linea:3.5},
+  {id:"OU4.5",nome:"Over/Under 4.5",sel:["Over","Under"],somma:1,linea:4.5},
+  {id:"AH-2",nome:"Handicap casa -2",sel:["Casa","Ospiti"],somma:1,hc:-2},
+  {id:"AH-1.5",nome:"Handicap casa -1.5",sel:["Casa","Ospiti"],somma:1,hc:-1.5},
+  {id:"AH-1",nome:"Handicap casa -1",sel:["Casa","Ospiti"],somma:1,hc:-1},
+  {id:"AH1",nome:"Handicap ospiti -1",sel:["Casa","Ospiti"],somma:1,hc:1},
+  {id:"AH1.5",nome:"Handicap ospiti -1.5",sel:["Casa","Ospiti"],somma:1,hc:1.5}
+];
+function mercatoById(id){for(var i=0;i<MERCATI.length;i++)if(MERCATI[i].id===id)return MERCATI[i];return null}
+
+function overUnder(m,line){var o=0,u=0;
+  for(var x=0;x<m.length;x++)for(var y=0;y<m.length;y++){
+    var t=x+y;if(t>line)o+=m[x][y];else if(t<line)u+=m[x][y]}
+  return{Over:o,Under:u}}
+function btts(m){var b=0;
+  for(var x=1;x<m.length;x++)for(var y=1;y<m.length;y++)b+=m[x][y];
+  return{Goal:b,NoGoal:1-b}}
+function asianHandicap(m,line){
+  if(Math.abs(line*2-Math.round(line*2))>1e-9){
+    var a=asianHandicap(m,line-0.25),b=asianHandicap(m,line+0.25);
+    return{Casa:(a.Casa+b.Casa)/2,Ospiti:(a.Ospiti+b.Ospiti)/2}}
+  var w=0,l=0;
+  for(var x=0;x<m.length;x++)for(var y=0;y<m.length;y++){var adj=x-y+line;
+    if(adj>1e-9)w+=m[x][y];else if(adj<-1e-9)l+=m[x][y]}
+  var s=w+l; return s>0?{Casa:w/s,Ospiti:l/s}:{Casa:0.5,Ospiti:0.5}}
+
+/* probabilita' di un mercato a partire dalla matrice dei punteggi: tutti i
+   mercati nascono dalla stessa matrice, quindi non possono contraddirsi */
+function probsMercato(m,mkt){
+  if(mkt.id==="1X2")return outcome1x2(m);
+  if(mkt.id==="DC"){var p=outcome1x2(m);
+    return{"1X":p["1"]+p["X"],"12":p["1"]+p["2"],"X2":p["X"]+p["2"]}}
+  if(mkt.id==="GG")return btts(m);
+  if(mkt.linea!=null)return overUnder(m,mkt.linea);
+  if(mkt.hc!=null)return asianHandicap(m,mkt.hc);
+  return null}
+
+/* Devig su un mercato qualsiasi. La doppia chance viene riportata a somma 1
+   dividendo per 2 prima di togliere il margine, e riespansa dopo: Shin assume
+   una partizione, e darle in pasto tre voci che sommano a 2 restituirebbe
+   numeri privi di senso. */
+function devigMercato(prezzi,mkt){
+  var sel=mkt.sel.filter(function(s){return prezzi[s]>1});
+  if(sel.length<2)return null;
+  if(mkt.somma===2){
+    var q={},tot=0;
+    sel.forEach(function(s){q[s]=1/prezzi[s];tot+=q[s]});
+    var out={};sel.forEach(function(s){out[s]=q[s]/tot*2});
+    return out}
+  var sub={};sel.forEach(function(s){sub[s]=prezzi[s]});
+  return shinDevig(sub)}
+function margineMercato(prezzi,mkt){
+  var sel=mkt.sel.filter(function(s){return prezzi[s]>1}),tot=0;
+  sel.forEach(function(s){tot+=1/prezzi[s]});
+  return tot/mkt.somma-1}
+
+/* ---- gol attesi impliciti nelle quote ----
+   Cerca la coppia (lambda, mu) la cui matrice riproduce le probabilita' di
+   mercato. E' il passaggio che permette di prezzare i mercati secondari a
+   partire da quelli principali, che il banco cura di piu'. */
+function impliedGoals(target){
+  function err(lam,mu){
+    var m=scoreMatrix(lam,mu,DATI.rho,10),p=outcome1x2(m),e=0,d;
+    d=p["1"]-target["1"];e+=d*d;d=p["X"]-target["X"];e+=d*d;d=p["2"]-target["2"];e+=d*d;
+    if(target.over25!=null){d=overUnder(m,2.5).Over-target.over25;e+=d*d*2}
+    return e}
+  var best={lam:1.4,mu:1.2,e:Infinity},i,j;
+  for(i=0;i<=34;i++)for(j=0;j<=34;j++){
+    var lam=0.15+i*(4.05/34),mu=0.15+j*(4.05/34),e=err(lam,mu);
+    if(e<best.e)best={lam:lam,mu:mu,e:e}}
+  var step=0.14,mv=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
+  for(var it=0;it<80;it++){var imp=false;
+    for(var k=0;k<mv.length;k++){
+      var nl=Math.max(0.05,best.lam+mv[k][0]*step),nm=Math.max(0.05,best.mu+mv[k][1]*step);
+      var ee=err(nl,nm);if(ee<best.e-1e-14){best={lam:nl,mu:nm,e:ee};imp=true}}
+    if(!imp)step/=2;if(step<1e-5)break}
+  return{lambda:best.lam,mu:best.mu,residuo:Math.sqrt(best.e)}}
+
 /* ---- modello: dai rating esportati alla previsione ---- */
 function ratingOf(nome){
   return DATI.squadre[nome]||null}
@@ -411,7 +517,7 @@ function modelProbs(casa,ospiti,div){
 
 /* ---- stato ---- */
 var state={legs:[],log:[],weekly:30,bankroll:1200,margin:0.04,minLeg:1.25,
-  w:0,quote:{},extra:[],aperta:null,filtro:"tutte"};
+  w:0,quote:{},extra:[],aperta:null,filtro:"tutte",mkt:"1X2"};
 var BONUS_ANCHORS={5:4,8:15,30:250},BONUS_MINLEGS=5;
 var db=null;
 function policy(){return{bankroll:state.bankroll,fraction:0.25,shrink:0.5,
@@ -425,29 +531,74 @@ function tutteLePartite(){return DATI.partite.concat(state.extra)}
 function trovaPartita(id){var a=tutteLePartite();
   for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null}
 
-/* ---- quote di una partita: consenso e prezzo migliore ---- */
-function analizza(p){
-  var righe=(state.quote[p.id]||[]).filter(function(r){
-    return r.o1>1&&r.oX>1&&r.o2>1});
-  var mod=modelProbs(p.casa,p.ospiti,p.div);
-  if(!righe.length)return{righe:[],mod:mod,mercato:null};
-  var acc={"1":0,"X":0,"2":0},n=0,margini=[];
+/* ---- quote di una partita, mercato per mercato ---- */
+function righeDi(p,mktId){
+  var q=state.quote[p.id];
+  if(!q)return[];
+  if(Array.isArray(q)){   // formato della versione precedente: solo 1X2
+    var conv={};conv["1X2"]=q.map(function(r){
+      return{book:r.book,prezzi:{"1":r.o1,"X":r.oX,"2":r.o2}}});
+    state.quote[p.id]=q=conv}
+  return q[mktId]||[]}
+function setRighe(p,mktId,righe){
+  if(!state.quote[p.id]||Array.isArray(state.quote[p.id]))righeDi(p,"1X2");
+  if(!state.quote[p.id])state.quote[p.id]={};
+  state.quote[p.id][mktId]=righe}
+function mercatiConQuote(p){
+  var q=state.quote[p.id];if(!q||Array.isArray(q))return q?["1X2"]:[];
+  return Object.keys(q).filter(function(k){
+    return (q[k]||[]).some(function(r){return valide(r,mercatoById(k))})})}
+function valide(r,mkt){
+  if(!mkt)return false;
+  var n=0;mkt.sel.forEach(function(s){if(r.prezzi&&r.prezzi[s]>1)n++});
+  return n===mkt.sel.length}
+
+function analizzaMercato(p,mktId){
+  var mkt=mercatoById(mktId);if(!mkt)return null;
+  var righe=righeDi(p,mktId).filter(function(r){return valide(r,mkt)});
+  if(!righe.length)return{mkt:mkt,righe:[],mercato:null};
+  var acc={},margini=[];mkt.sel.forEach(function(s){acc[s]=0});
   righe.forEach(function(r){
-    var d=shinDevig({"1":r.o1,"X":r.oX,"2":r.o2});
-    acc["1"]+=d["1"];acc["X"]+=d["X"];acc["2"]+=d["2"];n++;
-    margini.push(marginOf({"1":r.o1,"X":r.oX,"2":r.o2}))});
-  var mercato={"1":acc["1"]/n,"X":acc["X"]/n,"2":acc["2"]/n};
-  var s=mercato["1"]+mercato["X"]+mercato["2"];
-  mercato["1"]/=s;mercato["X"]/=s;mercato["2"]/=s;
+    var d=devigMercato(r.prezzi,mkt);
+    mkt.sel.forEach(function(s){acc[s]+=d[s]});
+    margini.push(margineMercato(r.prezzi,mkt))});
+  var mercato={},tot=0;
+  mkt.sel.forEach(function(s){mercato[s]=acc[s]/righe.length;tot+=mercato[s]});
+  mkt.sel.forEach(function(s){mercato[s]=mercato[s]/tot*mkt.somma});
   var best={};
-  ["1","X","2"].forEach(function(k){
-    var campo=k==="1"?"o1":(k==="X"?"oX":"o2"),b=null;
-    righe.forEach(function(r){if(!b||r[campo]>b.price)b={price:r[campo],book:r.book||"—"}});
-    best[k]=b});
-  var finale=mod?blend(mod.probs,mercato,state.w):mercato;
-  return{righe:righe,mod:mod,mercato:mercato,best:best,finale:finale,
-    nBooks:n,margineMedio:margini.reduce(function(a,b){return a+b},0)/n,
+  mkt.sel.forEach(function(s){var b=null;
+    righe.forEach(function(r){if(!b||r.prezzi[s]>b.price)b={price:r.prezzi[s],book:r.book||"\u2014"}});
+    best[s]=b});
+  return{mkt:mkt,righe:righe,mercato:mercato,best:best,nBooks:righe.length,
+    margineMedio:margini.reduce(function(a,b){return a+b},0)/margini.length,
     margineMin:Math.min.apply(null,margini)}}
+
+/* I gol attesi impliciti nelle quote principali permettono di prezzare tutti i
+   mercati secondari in modo coerente. Serve l'1X2; l'Over/Under 2.5, se c'e',
+   stringe molto la stima perche' fissa il totale dei gol oltre alla differenza. */
+function golImpliciti(p){
+  var a=analizzaMercato(p,"1X2");
+  if(!a||!a.mercato)return null;
+  var t={"1":a.mercato["1"],"X":a.mercato["X"],"2":a.mercato["2"]};
+  var ou=analizzaMercato(p,"OU2.5");
+  if(ou&&ou.mercato)t.over25=ou.mercato.Over;
+  var g=impliedGoals(t);
+  g.conOU=!!(ou&&ou.mercato);
+  g.matrice=scoreMatrix(g.lambda,g.mu,DATI.rho);
+  return g}
+
+function probFinali(p,mktId){
+  var a=analizzaMercato(p,mktId);
+  var mod=modelProbs(p.casa,p.ospiti,p.div);
+  if(a&&a.mercato){
+    if(mktId==="1X2"&&mod&&state.w>0)return blend(mod.probs,a.mercato,state.w);
+    return a.mercato}
+  var g=golImpliciti(p);
+  if(g)return probsMercato(g.matrice,mercatoById(mktId));
+  if(mod&&mktId==="1X2")return mod.probs;
+  if(mod){var mm=scoreMatrix(mod.lam,mod.mu,DATI.rho);
+    return probsMercato(mm,mercatoById(mktId))}
+  return null}
 
 /* ---- elenco partite ---- */
 function renderFiltri(){
@@ -469,32 +620,34 @@ function renderLista(){
   if(!ps.length){document.getElementById("listaBox").innerHTML=
     '<div class="empty">Nessuna partita in questa selezione.</div>';return}
   document.getElementById("listaBox").innerHTML=ps.map(function(p){
-    var a=analizza(p),sub,pill="";
-    if(a.mercato){
-      sub='quote di '+a.nBooks+' book · '+["1","X","2"].map(function(k){
+    var a=analizzaMercato(p,"1X2"),mod=modelProbs(p.casa,p.ospiti,p.div),sub,pill="";
+    var nm=mercatiConQuote(p).length;
+    if(a&&a.mercato){
+      sub='quote di '+a.nBooks+' book \u00b7 '+["1","X","2"].map(function(k){
         return k+" "+fmt(a.best[k].price)}).join("  ");
-      pill=' <span class="pill ok">quote</span>';
-    }else if(a.mod){
-      sub='modello · 1 '+pct(a.mod.probs["1"],0)+'  X '+pct(a.mod.probs["X"],0)+
-          '  2 '+pct(a.mod.probs["2"],0);
-      if(!a.mod.noti)pill=' <span class="pill no">squadra ignota</span>';
-    }else sub='nessuna stima — inserisci le quote';
+      pill=' <span class="pill ok">'+nm+' mercat'+(nm===1?"o":"i")+'</span>';
+    }else if(mod){
+      sub='modello \u00b7 1 '+pct(mod.probs["1"],0)+'  X '+pct(mod.probs["X"],0)+
+          '  2 '+pct(mod.probs["2"],0);
+      if(!mod.noti)pill=' <span class="pill no">squadra ignota</span>';
+    }else sub='nessuna stima \u2014 inserisci le quote';
     var d=new Date(p.quando);
     var when=d.toLocaleDateString("it-IT",{weekday:"short",day:"numeric",month:"short"})+
       "<br>"+d.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});
     return'<button class="fx" data-id="'+esc(p.id)+'"><span class="fx-when">'+when+
-      '</span><span class="fx-t"><span class="fx-n">'+esc(p.casa)+' – '+esc(p.ospiti)+
-      pill+'</span><span class="fx-p">'+sub+'</span></span><span class="fx-go">&rsaquo;</span></button>'
+      '</span><span class="fx-t"><span class="fx-n">'+esc(p.casa)+' \u2013 '+esc(p.ospiti)+
+      pill+'</span><span class="fx-p">'+sub+'</span></span><span class="fx-go">\u203a</span></button>'
   }).join("");
   Array.prototype.forEach.call(document.querySelectorAll("#listaBox [data-id]"),function(b){
     b.addEventListener("click",function(){apri(b.getAttribute("data-id"))})})}
 
 /* ---- dettaglio partita ---- */
-function apri(id){state.aperta=id;
+function apri(id){state.aperta=id;state.mkt="1X2";
   document.getElementById("listaView").hidden=true;
   document.getElementById("dettaglioView").hidden=false;
-  if(!state.quote[id]||!state.quote[id].length)
-    state.quote[id]=[{book:"Goldbet",o1:"",oX:"",o2:""}];
+  var p=trovaPartita(id);
+  if(p&&!righeDi(p,"1X2").length)
+    setRighe(p,"1X2",[{book:"Goldbet",prezzi:{}}]);
   renderDettaglio();window.scrollTo(0,0)}
 function chiudi(){state.aperta=null;
   document.getElementById("dettaglioView").hidden=true;
@@ -503,106 +656,163 @@ function chiudi(){state.aperta=null;
 
 function renderDettaglio(){
   var p=trovaPartita(state.aperta);if(!p)return chiudi();
-  var a=analizza(p);
+  var mod=modelProbs(p.casa,p.ospiti,p.div);
   var d=new Date(p.quando);
   var nomeDiv=(DATI.divisioni[p.div]&&DATI.divisioni[p.div].nome)||p.div;
   document.getElementById("detHead").innerHTML=
-    '<div class="verdict neutral"><h3>'+esc(nomeDiv)+' · '+
+    '<div class="verdict neutral"><h3>'+esc(nomeDiv)+' \u00b7 '+
     d.toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long"})+'</h3>'+
-    '<div class="big" style="font-size:20px">'+esc(p.casa)+' – '+esc(p.ospiti)+'</div>'+
-    (a.mod?'<p>Il modello si aspetta <b class="num">'+fmt(a.mod.lam,2)+' – '+
-      fmt(a.mod.mu,2)+'</b>'+(a.mod.noti?'':' — attenzione: almeno una squadra non è nei dati storici, la stima vale poco')+'.</p>'
-      :'<p>Fuori dalla portata del modello: conta solo il consenso delle quote.</p>')+
-    '</div>';
+    '<div class="big" style="font-size:20px">'+esc(p.casa)+' \u2013 '+esc(p.ospiti)+'</div>'+
+    (mod?'<p>Il modello si aspetta <b class="num">'+fmt(mod.lam,2)+' \u2013 '+fmt(mod.mu,2)+'</b>'+
+      (mod.noti?'':' \u2014 attenzione: almeno una squadra non \u00e8 nei dati storici')+'.</p>'
+      :'<p>Fuori dalla portata del modello: contano solo le quote.</p>')+'</div>';
 
-  var righe=state.quote[p.id]||[];
+  // selettore dei mercati, con il segno di quelli gia' quotati
+  var conQuote=mercatiConQuote(p);
+  document.getElementById("mktPicker").innerHTML=MERCATI.map(function(m){
+    var ha=conQuote.indexOf(m.id)>=0;
+    return'<button class="chip" data-m="'+m.id+'" aria-pressed="'+(state.mkt===m.id)+'">'+
+      esc(m.nome)+(ha?' \u2713':'')+'</button>'}).join("");
+  Array.prototype.forEach.call(document.querySelectorAll("#mktPicker [data-m]"),function(b){
+    b.addEventListener("click",function(){state.mkt=b.getAttribute("data-m");
+      var pp=trovaPartita(state.aperta);
+      if(!righeDi(pp,state.mkt).length)setRighe(pp,state.mkt,[{book:"Goldbet",prezzi:{}}]);
+      renderDettaglio();document.getElementById("bkPanel").scrollIntoView({block:"nearest"})})});
+
+  var mkt=mercatoById(state.mkt),righe=righeDi(p,state.mkt);
+  document.getElementById("bkTitolo").textContent="Quote \u2014 "+mkt.nome;
+  var cols="minmax(0,1.4fr) repeat("+mkt.sel.length+",minmax(0,1fr)) auto";
+  document.getElementById("bkHead").style.gridTemplateColumns=cols;
+  document.getElementById("bkHead").innerHTML='<span>Bookmaker</span>'+
+    mkt.sel.map(function(s){return'<span>'+esc(s)+'</span>'}).join("")+'<span></span>';
   document.getElementById("bkBox").innerHTML=righe.map(function(r,i){
-    return'<div class="bk">'+
+    return'<div class="bk" style="grid-template-columns:'+cols+'">'+
       '<input type="text" id="bk-n-'+i+'" value="'+esc(r.book||"")+'" placeholder="book" data-i="'+i+'" data-k="book" autocomplete="off">'+
-      '<input type="number" id="bk-1-'+i+'" value="'+(r.o1||"")+'" step="0.01" min="1.01" inputmode="decimal" data-i="'+i+'" data-k="o1">'+
-      '<input type="number" id="bk-x-'+i+'" value="'+(r.oX||"")+'" step="0.01" min="1.01" inputmode="decimal" data-i="'+i+'" data-k="oX">'+
-      '<input type="number" id="bk-2-'+i+'" value="'+(r.o2||"")+'" step="0.01" min="1.01" inputmode="decimal" data-i="'+i+'" data-k="o2">'+
-      '<button class="rm" data-rm="'+i+'" aria-label="togli">×</button></div>'}).join("");
-  Array.prototype.forEach.call(document.querySelectorAll("#bkBox [data-i]"),function(el){
+      mkt.sel.map(function(s,j){
+        return'<input type="number" id="bk-'+j+'-'+i+'" value="'+((r.prezzi&&r.prezzi[s])||"")+
+          '" step="0.01" min="1.01" inputmode="decimal" data-i="'+i+'" data-s="'+esc(s)+'">'}).join("")+
+      '<button class="rm" data-rm="'+i+'" aria-label="togli">\u00d7</button></div>'}).join("");
+  Array.prototype.forEach.call(document.querySelectorAll("#bkBox input"),function(el){
     el.addEventListener("input",function(){
-      var i=+el.getAttribute("data-i"),k=el.getAttribute("data-k");
-      state.quote[p.id][i][k]=k==="book"?el.value:parseFloat(el.value)||"";
+      var i=+el.getAttribute("data-i"),rr=righeDi(p,state.mkt);
+      if(el.getAttribute("data-k")==="book")rr[i].book=el.value;
+      else{if(!rr[i].prezzi)rr[i].prezzi={};
+        rr[i].prezzi[el.getAttribute("data-s")]=parseFloat(el.value)||""}
       salvaQuote();aggiornaCalcoli()})});
   Array.prototype.forEach.call(document.querySelectorAll("#bkBox [data-rm]"),function(b){
     b.addEventListener("click",function(){
-      state.quote[p.id].splice(+b.getAttribute("data-rm"),1);salvaQuote();renderDettaglio()})});
+      var rr=righeDi(p,state.mkt);rr.splice(+b.getAttribute("data-rm"),1);
+      salvaQuote();renderDettaglio()})});
   aggiornaCalcoli()}
 
 function aggiornaCalcoli(){
   var p=trovaPartita(state.aperta);if(!p)return;
-  var a=analizza(p),vb=document.getElementById("detVerdict");
-  var bp=document.getElementById("detBestPanel");
-  if(!a.mercato){
-    vb.innerHTML='<div class="verdict neutral"><h3>Servono le quote</h3>'+
-      '<p>Inserisci almeno un bookmaker per calcolare probabilità vere e valore.</p></div>';
-    bp.hidden=true;renderConfronto(a);return}
+  var a=analizzaMercato(p,state.mkt),vb=document.getElementById("detVerdict");
+  var bp=document.getElementById("detBestPanel"),mkt=mercatoById(state.mkt);
+  var finale=probFinali(p,state.mkt);
+  if(!a||!a.mercato){
+    var g=golImpliciti(p);
+    vb.innerHTML='<div class="verdict neutral"><h3>Nessuna quota su '+esc(mkt.nome)+'</h3>'+
+      '<p>'+(finale?'Qui sotto trovi comunque la quota equa stimata: inserisci il prezzo del banco per vedere se conviene.':'Inserisci le quote 1X2 per avere una stima di questo mercato.')+'</p></div>';
+    bp.hidden=true;renderDerivati(p);renderConfronto(p);return}
   bp.hidden=false;
-  var migliore=null;
-  ["1","X","2"].forEach(function(k){
-    var ev=a.finale[k]*a.best[k].price-1;
-    if(!migliore||ev>migliore.ev)migliore={sel:k,ev:ev,price:a.best[k].price,book:a.best[k].book}});
-  var pol=policy(),ks=kellyStake(a.finale[migliore.sel],migliore.price,pol);
-  var cls=migliore.ev>=MIN_EV?"pos":(migliore.ev>=0?"neutral":"neg");
-  var msg;
+  var pol=policy(),migliore=null;
+  mkt.sel.forEach(function(s){
+    var ev=finale[s]*a.best[s].price-1;
+    if(!migliore||ev>migliore.ev)migliore={sel:s,ev:ev,price:a.best[s].price,book:a.best[s].book}});
+  var ks=kellyStake(finale[migliore.sel],migliore.price,pol);
+  var cls=migliore.ev>=MIN_EV?"pos":(migliore.ev>=0?"neutral":"neg"),msg;
   if(migliore.ev<0)msg="Nessuna selezione ha valore: tutte sotto la quota equa.";
-  else if(migliore.ev<MIN_EV)msg="Valore sotto la soglia del 3%: dentro il margine d’errore.";
-  else if(!ks.stake)msg="Valore c’è, ma Kelly assegna meno della puntata minima di 2 €.";
-  else msg="Punta <b class=\"num\">"+fmt(ks.stake)+" €</b> su <b>"+migliore.sel+
+  else if(migliore.ev<MIN_EV)msg="Valore sotto la soglia del 3%: dentro il margine d\u2019errore.";
+  else if(!ks.stake)msg="Valore c\u2019\u00e8, ma Kelly assegna meno della puntata minima di 2 \u20ac.";
+  else msg="Punta <b class=\"num\">"+fmt(ks.stake)+" \u20ac</b> su <b>"+esc(migliore.sel)+
     "</b> a quota "+fmt(migliore.price)+" da <b>"+esc(migliore.book)+"</b>.";
-  // Con le quote battute a mano un errore di digitazione non produce un errore:
-  // produce una probabilita' plausibile e sbagliata. Se il modello e il mercato
-  // divergono oltre ogni ragionevolezza, quasi sempre e' una cifra sbagliata.
   var allarme="";
-  if(a.mod&&a.mod.noti){
-    var div=0,quale="";
-    ["1","X","2"].forEach(function(k){
-      var d=Math.abs(a.mod.probs[k]-a.mercato[k]);
-      if(d>div){div=d;quale=k}});
-    if(div>0.20)allarme='<div class="warn"><b>Controlla le quote.</b> Sull\u2019esito '+
-      quale+' il modello dice '+pct(a.mod.probs[quale])+' e le quote '+pct(a.mercato[quale])+
-      ': '+(div*100).toFixed(0)+' punti di scarto. Succede per una notizia che il '+
-      'modello non conosce, ma molto piu\u2019 spesso per una cifra digitata male.</div>'}
-  vb.innerHTML='<div class="verdict '+cls+'"><h3>Miglior valore: '+migliore.sel+
-    ' &middot; margine dei book '+pct(a.margineMedio)+' (minimo '+pct(a.margineMin)+')</h3>'+
+  if(state.mkt==="1X2"){
+    var mod=modelProbs(p.casa,p.ospiti,p.div);
+    if(mod&&mod.noti){var div=0,quale="";
+      ["1","X","2"].forEach(function(k){var dd=Math.abs(mod.probs[k]-a.mercato[k]);
+        if(dd>div){div=dd;quale=k}});
+      if(div>0.20)allarme='<div class="warn"><b>Controlla le quote.</b> Sull\u2019esito '+
+        quale+' il modello dice '+pct(mod.probs[quale])+' e le quote '+pct(a.mercato[quale])+
+        ': '+(div*100).toFixed(0)+' punti di scarto. Succede per una notizia che il modello '+
+        'non conosce, ma molto pi\u00f9 spesso per una cifra digitata male.</div>'}}
+  vb.innerHTML='<div class="verdict '+cls+'"><h3>'+esc(mkt.nome)+' \u00b7 miglior valore: '+
+    esc(migliore.sel)+' \u00b7 margine '+pct(a.margineMedio)+'</h3>'+
     '<div class="big">'+sgn(migliore.ev)+'</div><p>'+msg+'</p></div>'+allarme;
 
-  document.getElementById("bestBox").innerHTML=["1","X","2"].map(function(k){
-    var ev=a.finale[k]*a.best[k].price-1,eq=1/a.finale[k];
-    var st=kellyStake(a.finale[k],a.best[k].price,pol);
-    return'<div class="best"><span class="best-s">'+k+'</span>'+
-      '<span class="best-d">probabilità <b class="num">'+pct(a.finale[k])+'</b> · '+
-      'quota equa <b class="q">'+fmt(eq)+'</b><br>miglior prezzo <b class="num">'+
-      fmt(a.best[k].price)+'</b> da '+esc(a.best[k].book)+
-      (st.stake?' · punta <b class="num">'+fmt(st.stake)+' €</b>':'')+'</span>'+
-      '<span class="best-e '+(ev>=0?"":"")+'" style="color:'+(ev>=MIN_EV?"var(--pos)":(ev<0?"var(--neg)":"inherit"))+'">'+
-      sgn(ev)+'<br><button class="btn ghost sm" data-add="'+k+'" style="margin-top:4px">Aggiungi</button></span></div>'
+  document.getElementById("bestBox").innerHTML=mkt.sel.map(function(s){
+    var ev=finale[s]*a.best[s].price-1,st=kellyStake(finale[s],a.best[s].price,pol);
+    return'<div class="best"><span class="best-s">'+esc(s)+'</span>'+
+      '<span class="best-d">probabilit\u00e0 <b class="num">'+pct(finale[s])+'</b> \u00b7 '+
+      'quota equa <b class="q">'+fmt(1/finale[s])+'</b><br>miglior prezzo <b class="num">'+
+      fmt(a.best[s].price)+'</b> da '+esc(a.best[s].book)+
+      (st.stake?' \u00b7 punta <b class="num">'+fmt(st.stake)+' \u20ac</b>':'')+'</span>'+
+      '<span class="best-e" style="color:'+(ev>=MIN_EV?"var(--pos)":(ev<0?"var(--neg)":"inherit"))+'">'+
+      sgn(ev)+'<br><button class="btn ghost sm" data-add="'+esc(s)+'" style="margin-top:4px">Aggiungi</button></span></div>'
   }).join("");
   Array.prototype.forEach.call(document.querySelectorAll("#bestBox [data-add]"),function(b){
     b.addEventListener("click",function(){
-      var k=b.getAttribute("data-add");
-      state.legs.push({nome:k+" — "+p.casa+" – "+p.ospiti,match:p.id,
-        price:a.best[k].price,p:a.finale[k],book:a.best[k].book,sel:k,
-        etichetta:p.casa+" – "+p.ospiti});
+      var s=b.getAttribute("data-add");
+      state.legs.push({nome:mkt.nome+": "+s,match:p.id,mkt:mkt.id,sel:s,
+        price:a.best[s].price,p:finale[s],book:a.best[s].book,
+        etichetta:p.casa+" \u2013 "+p.ospiti});
       showTab("schedina")})});
-  renderConfronto(a)}
+  renderDerivati(p);renderConfronto(p)}
 
-function renderConfronto(a){
+/* I mercati che il banco cura meno, prezzati dai principali che cura di piu'. */
+function renderDerivati(p){
+  var g=golImpliciti(p),box=document.getElementById("derivBox");
+  var nota=document.getElementById("derivNota");
+  if(!g){box.innerHTML='<p class="note">Servono le quote 1X2 per stimare gli altri mercati.</p>';
+    nota.textContent="";return}
+  var conQuote=mercatiConQuote(p);
+  // Il nome del mercato sta su una riga propria, non in una colonna: a 400px di
+  // larghezza una colonna in piu' spinge fuori schermo proprio "Serve", che e'
+  // il numero per cui si guarda la tabella.
+  var t='<div class="tbl-scroll"><table><thead><tr><th>Esito</th><th>Prob.</th>'+
+    '<th>Quota equa</th><th>Serve</th></tr></thead><tbody>';
+  MERCATI.forEach(function(m){
+    var pr=probsMercato(g.matrice,m),ha=conQuote.indexOf(m.id)>=0;
+    var vis=m.sel.filter(function(s){return pr[s]>=0.02&&pr[s]<=0.98});
+    if(!vis.length)return;
+    t+='<tr class="mkt-row"><td colspan="4"><button class="btn ghost sm" data-go="'+m.id+'">'+
+      esc(m.nome)+(ha?' ✓':'')+'</button></td></tr>';
+    vis.forEach(function(s){
+      t+='<tr'+(ha?' class="hl"':'')+'><td>'+esc(s)+'</td><td>'+pct(pr[s])+
+        '</td><td class="q">'+fmt(1/pr[s])+'</td><td><b>'+fmt((1+MIN_EV)/pr[s])+'</b></td></tr>'})});
+  box.innerHTML=t+'</tbody></table></div>';
+  Array.prototype.forEach.call(box.querySelectorAll("[data-go]"),function(b){
+    b.addEventListener("click",function(){state.mkt=b.getAttribute("data-go");
+      var pp=trovaPartita(state.aperta);
+      if(!righeDi(pp,state.mkt).length)setRighe(pp,state.mkt,[{book:"Goldbet",prezzi:{}}]);
+      renderDettaglio();document.getElementById("bkPanel").scrollIntoView({block:"start"})})});
+  nota.innerHTML="Gol attesi ricavati dalle quote: <b class=\"num\">"+fmt(g.lambda,2)+
+    " \u2013 "+fmt(g.mu,2)+"</b>"+(g.conOU?", usando anche l\u2019Over/Under 2.5":
+    " \u2014 aggiungi l\u2019Over/Under 2.5 e la stima si stringe parecchio")+
+    ". <b>Serve</b> \u00e8 la quota oltre la quale la giocata conviene. Le righe "+
+    "evidenziate hanno gi\u00e0 le tue quote."+
+    (g.residuo>0.02?" <b>Attenzione:</b> la ricostruzione non torna del tutto (scarto "+
+      (g.residuo*100).toFixed(1)+" punti): 1X2 e Over/Under raccontano due partite diverse.":"")}
+
+/* Il modello accanto alle quote: non decide, ma fa da controllo. */
+function renderConfronto(p){
   var box=document.getElementById("cmpBox");
-  if(!a.mod){box.innerHTML='<p class="note">Il modello non copre questa partita.</p>';return}
+  if(!box)return;
+  var mod=modelProbs(p.casa,p.ospiti,p.div);
+  if(!mod){box.innerHTML='<p class="note">Il modello non copre questa partita: le sue '+
+    'scale non sono confrontabili fra nazioni diverse.</p>';return}
+  var a=analizzaMercato(p,"1X2"),fin=probFinali(p,"1X2");
+  var ha=!!(a&&a.mercato);
   var h='<div class="tbl-scroll"><table><thead><tr><th>Esito</th><th>Modello</th>'+
-    (a.mercato?'<th>Quote</th><th>Usata</th>':'')+'</tr></thead><tbody>';
+    (ha?'<th>Quote</th><th>Usata</th>':'')+'</tr></thead><tbody>';
   ["1","X","2"].forEach(function(k){
-    h+='<tr><td>'+k+'</td><td>'+pct(a.mod.probs[k])+'</td>'+
-      (a.mercato?'<td>'+pct(a.mercato[k])+'</td><td class="q">'+pct(a.finale[k])+'</td>':'')+'</tr>'});
+    h+='<tr><td>'+k+'</td><td>'+pct(mod.probs[k])+'</td>'+
+      (ha?'<td>'+pct(a.mercato[k])+'</td><td class="q">'+pct(fin[k])+'</td>':'')+'</tr>'});
   box.innerHTML=h+'</tbody></table></div>'+
-    (a.mercato?'<p class="note">La colonna <b>usata</b> dipende dal peso del modello, '+
-      'che trovi nel Registro. È a zero perché su 33.300 partite ogni punto di peso '+
-      'dato al modello peggiora la previsione.</p>':'')}
+    (ha?'<p class="note">La colonna <b>usata</b> dipende dal peso del modello, che trovi '+
+      'nel Registro. \u00c8 a zero perch\u00e9 su 33.300 partite ogni punto di peso dato al '+
+      'modello peggiora la previsione.</p>':'')}
 
 /* ---- schedina ---- */
 function bonusAt(n){
@@ -648,7 +858,7 @@ function renderSchedina(){
   box.innerHTML=state.legs.map(function(l,i){
     var ev=l.p*l.price-1;
     return'<div class="leg"><div><div class="leg-m">'+esc(l.nome)+'</div>'+
-      '<div class="leg-s">quota <b class="num">'+fmt(l.price)+'</b> da '+esc(l.book||"—")+
+      '<div class="leg-s">'+esc(l.etichetta||'')+' \u00b7 quota <b class="num">'+fmt(l.price)+'</b> da '+esc(l.book||"\u2014")+
       ' · <span class="num">'+pct(l.p)+'</span> · EV <b class="num">'+sgn(ev)+'</b></div></div>'+
       '<button class="btn ghost sm" data-rm="'+i+'">Togli</button></div>'}).join("");
   Array.prototype.forEach.call(box.querySelectorAll("[data-rm]"),function(b){
@@ -701,7 +911,7 @@ function renderSchedina(){
   var sub=r.best?r.best.sub:state.legs,ss=slipStats(sub);
   document.getElementById("copyPanel").hidden=false;
   document.getElementById("copyBox").textContent=
-    sub.map(function(l,i){return(i+1)+". "+l.etichetta+"  →  "+l.sel+
+    sub.map(function(l,i){return(i+1)+". "+l.etichetta+"\n   "+(mercatoById(l.mkt||"1X2")||{nome:""}).nome+" → "+l.sel+
       "   quota "+fmt(l.price)+"  ("+l.book+")"}).join("\n")+
     "\n\nquota totale "+fmt(ss.eff)+(ss.bonus>0?"  (bonus +"+fmt(ss.bonus,0)+"%)":"")+
     "\npuntata "+fmt(stake)+" €   vincita "+fmt(stake*ss.eff)+" €"+
@@ -804,7 +1014,8 @@ TABS.forEach(function(t){document.getElementById("tab-"+t)
   .addEventListener("click",function(){showTab(t)})});
 document.getElementById("btnBack").addEventListener("click",chiudi);
 document.getElementById("btnAddBook").addEventListener("click",function(){
-  state.quote[state.aperta].push({book:"",o1:"",oX:"",o2:""});renderDettaglio()});
+  var p=trovaPartita(state.aperta);if(!p)return;
+  righeDi(p,state.mkt).push({book:"",prezzi:{}});renderDettaglio()});
 document.getElementById("btnNuova").addEventListener("click",function(){
   var c=document.getElementById("nvCasa").value.trim(),
       o=document.getElementById("nvOspiti").value.trim();
