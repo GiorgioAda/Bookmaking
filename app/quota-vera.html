@@ -625,7 +625,7 @@ function modelProbs(casa,ospiti,div){
 /* ---- stato ---- */
 var state={legs:[],log:[],weekly:30,bankroll:1200,margin:0.04,minLeg:1.25,
   w:0,quote:{},extra:[],aperta:null,filtro:"tutte",mkt:"1X2",book:"goldbet",
-  scelte:[],gen:null};
+  scelte:[],gen:null,provider:"oddsapi"};
 /* Il bonus non e' una proprieta' della schedina ma del banco su cui la giochi:
    scaglioni, quota minima per gamba e numero minimo di eventi cambiano da un
    bookmaker all'altro. Per questo tutto qui sotto legge il banco selezionato. */
@@ -895,7 +895,17 @@ function normNome(x){
 var ALIAS_API={
   "qpr":"queens park rangers","wolves":"wolverhampton wanderers",
   "west brom":"west bromwich albion","sheffield weds":"sheffield wednesday",
-  "psg":"paris saint germain","spurs":"tottenham hotspur"};
+  "psg":"paris saint germain","spurs":"tottenham hotspur",
+  // "Ath" abbrevia sia Athletic sia Atletico, e la regola del prefisso non
+  // basta: "atletico" non comincia per "ath". Vanno scritte a mano, ed e'
+  // bene che restino due voci distinte: Bilbao e Madrid non vanno confuse.
+  "ath madrid":"atletico madrid","ath bilbao":"athletic bilbao",
+  "espanol":"espanyol","m gladbach":"borussia monchengladbach",
+  "ein frankfurt":"eintracht frankfurt","sp lisbon":"sporting lisbon",
+  "nott m forest":"nottingham forest","verona":"hellas verona",
+  "betis":"real betis","sociedad":"real sociedad","celta":"celta vigo",
+  "vallecano":"rayo vallecano","santander":"racing santander",
+  "la coruna":"deportivo la coruna","alaves":"deportivo alaves"};
 
 /* Due parole si corrispondono anche se una e' l'abbreviazione dell'altra:
    "man" sta per "manchester", "nott" per "nottingham", "brom" per "bromwich".
@@ -912,22 +922,63 @@ function simile(a,b){
   if(ALIAS_API[x])x=normNome(ALIAS_API[x]);
   if(ALIAS_API[y])y=normNome(ALIAS_API[y]);
   if(x===y)return 1;
-  if(x.indexOf(y)>=0||y.indexOf(x)>=0)return 0.9;
-  var tx=x.split(" "),ty=y.split(" "),c=0;
+  var tx=x.split(" "),ty=y.split(" ");
+
+  /* Un nome di una sola parola aggancia solo se quella parola apre l'altro
+     nome. Senza questa regola "Inter Milan" agganciava "Milan" al 90%, e in
+     una giornata con entrambe in campo le quote dell'Inter sarebbero finite
+     sulla partita del Milan: una scommessa sbagliata, senza alcun segnale.
+     Meglio non agganciare e vederselo dire nel rapporto, che agganciare male. */
+  if(tx.length===1||ty.length===1){
+    var sola=tx.length===1?tx[0]:ty[0], altri=tx.length===1?ty:tx;
+    return paroleCorrispondono(sola,altri[0])?0.95:0}
+
+  if(x.indexOf(y)===0||y.indexOf(x)===0)return 0.9;
+  var c=0;
   tx.forEach(function(t){
     for(var i=0;i<ty.length;i++)if(paroleCorrispondono(t,ty[i])){c++;return}});
   var overlap=c/Math.max(1,Math.min(tx.length,ty.length));
-  return Math.max(overlap,0.9*overlap)}
+  // la prima parola che corrisponde vale piu' delle altre: e' quella che
+  // distingue due club della stessa citta'
+  return paroleCorrispondono(tx[0],ty[0])?overlap:overlap*0.75}
+
+/* Due fornitori, due forme di API diverse.
+   The Odds API: una chiamata per campionato, risposta piatta, gia' provata sul
+   campo e funzionante. OddsPapi: prima si chiede l'elenco dei tornei per
+   trovarne gli identificativi, poi si chiedono le quote di piu' tornei in una
+   volta sola. Dichiara molti piu' bookmaker, ma la forma della sua risposta
+   non e' stata verificata: se non torna, il pannello mostra la struttura
+   ricevuta invece di indovinare. */
+var FORNITORI={
+  oddsapi:{nome:"The Odds API",sito:"the-odds-api.com",provato:true},
+  oddspapi:{nome:"OddsPapi",sito:"oddspapi.io",provato:false}};
+
+/* Come si chiamano i nostri campionati nel catalogo di OddsPapi. */
+var TORNEI_OP={
+  IT1:{paese:"italy",torneo:"serie a"},EN1:{paese:"england",torneo:"premier league"},
+  EN2:{paese:"england",torneo:"championship"},DE1:{paese:"germany",torneo:"bundesliga"},
+  DE2:{paese:"germany",torneo:"2. bundesliga"},ES1:{paese:"spain",torneo:"laliga"},
+  ES2:{paese:"spain",torneo:"laliga 2"},FR1:{paese:"france",torneo:"ligue 1"},
+  FR2:{paese:"france",torneo:"ligue 2"},IT2:{paese:"italy",torneo:"serie b"},
+  PT1:{paese:"portugal",torneo:"liga portugal"}};
 
 function renderAuto(){
   var box=document.getElementById("autoBox");if(!box)return;
-  var k=lsGet("qv2.apikey","");
-  box.innerHTML='<p class="lede" style="margin-bottom:10px">Con una chiave di '+
-    '<b>The Odds API</b> (piano gratuito: 500 chiamate al mese) l’app scarica da '+
-    'sola calendario e quote di piu’ bookmaker. <b>Funziona solo nel file '+
-    'scaricato</b>: la versione online gira in una sandbox che blocca le chiamate '+
-    'esterne.</p>'+
-    '<div class="grid g2"><div><label for="apiKey">Chiave API</label>'+
+  var prov=state.provider||"oddsapi";
+  var k=lsGet("qv2.key."+prov,"");
+  var f=FORNITORI[prov];
+  box.innerHTML=
+    '<div class="filters" id="provPicker" style="margin-bottom:10px">'+
+    Object.keys(FORNITORI).map(function(id){
+      return'<button class="chip" data-p="'+id+'" aria-pressed="'+(prov===id)+'">'+
+        esc(FORNITORI[id].nome)+'</button>'}).join("")+'</div>'+
+    '<p class="lede" style="margin-bottom:10px">Chiave gratuita da <b>'+esc(f.sito)+
+    '</b>. <b>Funziona solo qui</b>, non nella versione dentro claude.ai, che blocca '+
+    'le chiamate esterne.</p>'+
+    (f.provato?'':'<div class="warn"><b>'+esc(f.nome)+' non e’ stato collaudato.</b> '+
+      'La forma della risposta segue la documentazione, non una chiamata vera. Se non '+
+      'torna, il pannello mostra la struttura ricevuta e la sistemo.</div>')+
+    '<div class="grid g2"><div><label for="apiKey">Chiave '+esc(f.nome)+'</label>'+
     '<input type="text" id="apiKey" value="'+esc(k)+'" placeholder="incolla qui" autocomplete="off"></div>'+
     '<div><label for="apiReg">Regione</label><select id="apiReg">'+
     '<option value="eu">Europa</option><option value="uk">Regno Unito</option></select></div></div>'+
@@ -936,26 +987,142 @@ function renderAuto(){
     '<input type="checkbox" id="apiOU" style="width:18px;height:18px;accent-color:var(--accent)"'+
     (lsGet("qv2.apiou",false)?" checked":"")+'> scarica anche Over/Under 2.5'+
     '</label><span></span></div>'+
-    '<p class="note" style="margin-top:6px">L\u2019Over/Under raddoppia i crediti '+
-    'consumati ma migliora molto la stima dei gol attesi, e con essa tutte le '+
-    'combo. Il piano gratuito d\u00e0 500 crediti al mese e un credito vale '+
-    '<i>mercati \u00d7 regioni</i> per campionato: con 5 campionati sono 5 crediti '+
-    'a scaricata, 10 con l\u2019Over/Under.</p>'+
+    '<p class="note" style="margin-top:6px">L’Over/Under costa il doppio ma migliora '+
+    'molto la stima dei gol attesi, e con essa tutte le combo.</p>'+
     '<div class="row-btn"><button class="btn ghost" id="btnAuto">Scarica quote</button></div>'+
-    '<div id="autoEsito"></div>'+
-    '<p class="note"><b>Non ho potuto collaudarlo.</b> Dall’ambiente in cui è stato '+
-    'scritto nessun fornitore di quote è raggiungibile, quindi il formato delle '+
-    'risposte segue la documentazione e non una chiamata vera. Se qualcosa non '+
-    'torna il pannello lo dice: non inventa quote.</p>';
+    '<div id="autoEsito"></div>';
+  Array.prototype.forEach.call(box.querySelectorAll("[data-p]"),function(b){
+    b.addEventListener("click",function(){
+      state.provider=b.getAttribute("data-p");salvaImp();renderAuto()})});
   document.getElementById("apiKey").addEventListener("input",function(){
-    lsSet("qv2.apikey",this.value.trim())});
+    lsSet("qv2.key."+prov,this.value.trim())});
   var ck=document.getElementById("apiOU");
   if(ck)ck.addEventListener("change",function(){lsSet("qv2.apiou",this.checked)});
-  var q=lsGet("qv2.apiquota",null);
+  var q=lsGet("qv2.quota."+prov,null);
   if(q)document.getElementById("autoEsito").innerHTML=
-    '<p class="note">Ultima scaricata: <b class="num">'+esc(q.rimasti)+'</b> crediti '+
-    'rimasti, '+esc(q.usati)+' usati.</p>';
-  document.getElementById("btnAuto").addEventListener("click",scaricaQuote)}
+    '<p class="note">Ultima scaricata: <b class="num">'+esc(q.rimasti)+'</b> crediti rimasti.</p>';
+  document.getElementById("btnAuto").addEventListener("click",function(){
+    if(state.provider==="oddspapi")scaricaOddsPapi();else scaricaQuote()})}
+
+/* Aggiunge al calendario le quote di un bookmaker su una partita, sostituendo
+   quelle precedenti dello stesso banco. Condivisa fra i due fornitori. */
+function applicaQuote(cand,nomeBook,pr,po){
+  var n=0;
+  if(pr&&pr["1"]>1&&pr["X"]>1&&pr["2"]>1){
+    var righe=righeDi(cand,"1X2").filter(function(r){
+      return (r.book||"").toLowerCase()!==String(nomeBook).toLowerCase()});
+    righe.push({book:nomeBook,prezzi:pr});
+    setRighe(cand,"1X2",righe);n++}
+  if(po&&po.Over>1&&po.Under>1){
+    var ro=righeDi(cand,"OU2.5").filter(function(r){
+      return (r.book||"").toLowerCase()!==String(nomeBook).toLowerCase()});
+    ro.push({book:nomeBook,prezzi:po});
+    setRighe(cand,"OU2.5",ro);n++}
+  return n}
+
+/* Cerca nel calendario la partita che corrisponde a due nomi di squadra. */
+function trovaPerSquadre(div,casa,osp){
+  var cand=null,best=0;
+  DATI.partite.forEach(function(p){
+    if(div&&p.div!==div)return;
+    var sc=Math.min(simile(casa,p.casa),simile(osp,p.ospiti));
+    if(sc>best){best=sc;cand=p}});
+  return{p:best>=0.6?cand:null,best:best}}
+
+/* OddsPapi: due passaggi. Prima l'elenco dei tornei per trovare gli
+   identificativi dei nostri campionati, poi le quote di tutti quei tornei in
+   una chiamata sola. La forma della risposta delle quote non e' verificata,
+   quindi il parser e' tollerante e, se non riconosce nulla, mostra le chiavi
+   ricevute invece di restituire zero senza spiegazione. */
+var OP_BASE="https://api.oddspapi.io/v4";
+
+function scaricaOddsPapi(){
+  var esito=document.getElementById("autoEsito");
+  var key=(document.getElementById("apiKey").value||"").trim();
+  if(!key){esito.innerHTML='<div class="warn">Manca la chiave API.</div>';return}
+  esito.innerHTML='<p class="note">Cerco i campionati…</p>';
+
+  fetch(OP_BASE+"/tournaments?sportId=10&apiKey="+encodeURIComponent(key))
+    .then(function(r){
+      var rim=r.headers.get("x-requests-remaining");
+      if(rim!=null)lsSet("qv2.quota.oddspapi",{rimasti:rim});
+      if(!r.ok)throw new Error("HTTP "+r.status+(r.status===401||r.status===403?
+        " (chiave rifiutata)":(r.status===429?" (crediti esauriti)":"")));
+      return r.json()})
+    .then(function(dati){
+      var lista=Array.isArray(dati)?dati:(dati&&(dati.data||dati.tournaments)||[]);
+      if(!Array.isArray(lista)||!lista.length)
+        throw new Error("elenco tornei vuoto o di forma inattesa");
+      var scelti=[],mappa={};
+      Object.keys(TORNEI_OP).forEach(function(div){
+        if(!DATI.partite.some(function(p){return p.div===div}))return;
+        var vuole=TORNEI_OP[div],trov=null;
+        lista.forEach(function(t){
+          var cat=String(t.categorySlug||t.categoryName||"").toLowerCase();
+          var nom=String(t.tournamentName||t.tournamentSlug||"").toLowerCase();
+          if(cat.indexOf(vuole.paese)<0)return;
+          if(nom.replace(/[^a-z0-9 ]/g,"").indexOf(vuole.torneo)<0)return;
+          if(!trov)trov=t});
+        if(trov&&trov.tournamentId!=null){
+          scelti.push(trov.tournamentId);mappa[String(trov.tournamentId)]=div}});
+      if(!scelti.length)throw new Error("nessuno dei nostri campionati trovato nel "+
+        "catalogo ("+lista.length+" tornei ricevuti)");
+      esito.innerHTML='<p class="note">'+scelti.length+' campionati trovati, scarico le quote…</p>';
+      return fetch(OP_BASE+"/odds-by-tournaments?tournamentIds="+scelti.join(",")+
+        "&apiKey="+encodeURIComponent(key))
+        .then(function(r){
+          var rim=r.headers.get("x-requests-remaining");
+          if(rim!=null)lsSet("qv2.quota.oddspapi",{rimasti:rim});
+          if(!r.ok)throw new Error("quote: HTTP "+r.status);
+          return r.json()})
+        .then(function(q){return{quote:q,mappa:mappa}})})
+    .then(function(res){
+      var righe=Array.isArray(res.quote)?res.quote:
+        (res.quote&&(res.quote.data||res.quote.fixtures||res.quote.odds)||[]);
+      if(!Array.isArray(righe))throw new Error("quote di forma inattesa");
+      var nuove=0,agg=0,scartati=[],nonLetti=0,esempio=null;
+      righe.forEach(function(ev){
+        var casa=ev.homeTeam||ev.home||ev.participant1||
+          (ev.participants&&ev.participants[0]&&(ev.participants[0].name||ev.participants[0]));
+        var osp=ev.awayTeam||ev.away||ev.participant2||
+          (ev.participants&&ev.participants[1]&&(ev.participants[1].name||ev.participants[1]));
+        if(!casa||!osp){nonLetti++;if(!esempio)esempio=ev;return}
+        var div=res.mappa[String(ev.tournamentId)]||null;
+        var t=trovaPerSquadre(div,casa,osp);
+        if(!t.p){if(t.best>=0.3&&scartati.length<6)
+          scartati.push(casa+" – "+osp+" ("+t.best.toFixed(2)+")");return}
+        agg++;
+        var books=ev.bookmakers||ev.odds||[];
+        if(!Array.isArray(books)){nonLetti++;if(!esempio)esempio=ev;return}
+        books.forEach(function(bk){
+          var nome=bk.bookmaker||bk.name||bk.key||bk.title;
+          var m=bk.markets||bk.odds||bk;
+          var pr=null,po=null;
+          var uno=m["1"]||m.home||m.homeWin, x=m["X"]||m.draw, due=m["2"]||m.away||m.awayWin;
+          if(uno>1&&x>1&&due>1)pr={"1":+uno,"X":+x,"2":+due};
+          var ov=m.over25||m["over2.5"],un=m.under25||m["under2.5"];
+          if(ov>1&&un>1)po={Over:+ov,Under:+un};
+          if(nome&&(pr||po))nuove+=applicaQuote(t.p,String(nome),pr,po);
+          else if(!pr&&!po){nonLetti++;if(!esempio)esempio=bk}})});
+      salvaQuote();renderLista();renderOccasioni();
+      var h="";
+      if(nuove)h+='<div class="verdict pos" style="margin-top:10px"><h3>'+nuove+
+        ' quote scaricate</h3><p>Su '+agg+' partite agganciate.</p></div>';
+      if(scartati.length)h+='<div class="warn"><b>Nomi che non combaciano:</b><br>'+
+        esc(scartati.join(" · "))+'</div>';
+      if(nonLetti&&esempio){
+        // Non indovino la struttura: la mostro, cosi' si corregge sul dato vero.
+        h+='<div class="warn"><b>'+nonLetti+' voci non lette.</b> La risposta ha una '+
+          'forma diversa da quella prevista. Mandami queste righe e la sistemo:<br>'+
+          '<code style="font-size:11px;word-break:break-all">'+
+          esc(JSON.stringify(esempio).slice(0,400))+'</code></div>'}
+      if(!nuove&&!scartati.length&&!nonLetti)h+='<div class="warn">Nessuna quota '+
+        'utilizzabile nella risposta.</div>';
+      esito.innerHTML=h})
+    .catch(function(e){
+      esito.innerHTML='<div class="warn"><b>Non riuscito.</b><br>'+esc(e.message)+
+        '<br>Se parla di <i>fetch</i> o CORS, OddsPapi non consente le chiamate dal '+
+        'browser: in quel caso resta The Odds API, che invece funziona.</div>'})}
 
 function scaricaQuote(){
   var esito=document.getElementById("autoEsito");
@@ -977,7 +1144,7 @@ function scaricaQuote(){
       // il credito residuo viaggia negli header: senza guardarlo il piano
       // gratuito si esaurisce senza preavviso
       var rim=r.headers.get("x-requests-remaining"),us=r.headers.get("x-requests-used");
-      if(rim!=null)lsSet("qv2.apiquota",{rimasti:rim,usati:us||"?"});
+      if(rim!=null)lsSet("qv2.quota.oddsapi",{rimasti:rim,usati:us||"?"});
       if(!r.ok)throw new Error("HTTP "+r.status+(r.status===401?" (chiave rifiutata)":
         (r.status===429?" (crediti esauriti)":"")));
       return r.json()}).then(function(dati){
@@ -1037,7 +1204,7 @@ function scaricaQuote(){
       if(fatti<divs.length)return;
       salvaQuote();renderLista();renderOccasioni();
       var h="";
-      var q2=lsGet("qv2.apiquota",null);
+      var q2=lsGet("qv2.quota.oddsapi",null);
       if(nuoveQuote)h+='<div class="verdict pos" style="margin-top:10px"><h3>'+
         nuoveQuote+' quote scaricate</h3><p>Su '+agganciate+
         ' partite agganciate al calendario.'+
@@ -1659,7 +1826,8 @@ function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 function salvaQuote(){lsSet("qv2.quote",state.quote);
   if(db)db.doc("quote/correnti").set({v:state.quote}).catch(function(){})}
 function salvaImp(){var s={weekly:state.weekly,bankroll:state.bankroll,
-  margin:state.margin,minLeg:state.minLeg,w:state.w,book:state.book};
+  margin:state.margin,minLeg:state.minLeg,w:state.w,book:state.book,
+  provider:state.provider};
   lsSet("qv2.imp",s);if(db)db.doc("impostazioni/mie").set(s).catch(function(){})}
 function salvaGiocata(g){lsSet("qv2.log",state.log);
   if(db)db.doc("giocate/"+g.id).set(g).catch(function(){})}
@@ -1730,7 +1898,7 @@ function etichettaPeso(){
   var imp=lsGet("qv2.imp",null);
   if(imp){state.weekly=imp.weekly||30;state.bankroll=imp.bankroll||1200;
     state.margin=imp.margin||0.04;state.minLeg=imp.minLeg||1.25;state.w=imp.w||0;
-    state.book=imp.book||"goldbet";
+    state.book=imp.book||"goldbet";state.provider=imp.provider||"oddsapi";
     document.getElementById("fWeekly").value=state.weekly;
     document.getElementById("fBankroll").value=state.bankroll;
     document.getElementById("fMargin").value=String(state.margin);
