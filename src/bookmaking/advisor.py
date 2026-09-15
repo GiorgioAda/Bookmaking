@@ -32,6 +32,7 @@ from bookmaking.pricing.consensus import (BookWeights, ITALIAN_BOOKS,
                                           consensus_probabilities)
 from bookmaking.pricing.devig import DevigMethod
 from bookmaking.staking.kelly import BankrollPolicy, StakePlan, plan_stakes
+from bookmaking.staking.schedina import BonusSchedule, TicketPlan, optimise
 from bookmaking.staking.ticket import Leg, Ticket, build_ticket
 
 
@@ -223,6 +224,55 @@ class Advisor:
 
         out.sort(key=vicinanza, reverse=True)
         return out[:top_n]
+
+    def candidate_legs(self, fixtures: list[Match], odds: dict[str, MatchOdds],
+                       markets: tuple[str, ...] = ("1X2",),
+                       min_price: float = 1.10,
+                       max_price: float = 8.0) -> list[Leg]:
+        """Tutte le selezioni giocabili delle partite date, con la probabilita' fusa.
+
+        E' il materiale grezzo da cui si costruisce una schedina a quota
+        obiettivo: una gamba per ogni selezione che un book giocabile quota.
+        """
+        legs: list[Leg] = []
+        for fixture in fixtures:
+            mo = odds.get(fixture.match_id or "")
+            analysis = self.analyse(fixture, mo, markets)
+            for market in markets:
+                probs = analysis.model_probs.get(market)
+                if probs is None:
+                    continue
+                if market in analysis.market_probs:
+                    probs = blend_probabilities(probs, analysis.market_probs[market],
+                                                self.model_weight)
+                for selection, p in probs.items():
+                    if mo is None or p <= 0:
+                        continue
+                    best = self._best_playable(mo, market, selection)
+                    if best is None:
+                        continue
+                    book, price = best
+                    if not (min_price <= price <= max_price):
+                        continue
+                    legs.append(Leg(
+                        match_id=fixture.match_id or f"{fixture.home}-{fixture.away}",
+                        label=f"{fixture.home} - {fixture.away}", market=market,
+                        selection=selection, bookmaker=book, price=price,
+                        p_final=p, score_matrix=analysis.score_matrix))
+        return legs
+
+    def target_tickets(self, fixtures: list[Match], odds: dict[str, MatchOdds],
+                       target: float = 5.0, max_legs: int = 10,
+                       bonus: BonusSchedule | None = None,
+                       markets: tuple[str, ...] = ("1X2",)) -> list[TicketPlan]:
+        """Schedine che raggiungono la quota obiettivo, una per numero di gambe.
+
+        Restituisce la frontiera intera e non la sola migliore: e' vedendo come
+        cala la probabilita' aggiungendo gambe che si capisce quanto costa
+        allungare la schedina, e se il bonus lo ripaga.
+        """
+        legs = self.candidate_legs(fixtures, odds, markets)
+        return optimise(legs, target=target, max_legs=max_legs, bonus=bonus)
 
     def build_ticket_from(self, picks: list[tuple[Match, str, str]],
                           odds: dict[str, MatchOdds], stake: float) -> Ticket:

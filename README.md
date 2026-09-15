@@ -115,6 +115,75 @@ I bookmaker non sono pareri indipendenti: Goldbet, Better e Lottomatica sono lo
 stesso palinsesto. Nel consenso il peso viene diviso all'interno del gruppo,
 altrimenti un parere solo conterebbe per tre.
 
+## Schedina a quota obiettivo
+
+Obiettivo tipico: una schedina che arrivi ad almeno quota 5 fra quote e bonus.
+Il conto da fare prima di costruirla e' questo, a margine del 5% per gamba:
+
+| gambe | quota | P(vincita) | 1 volta su | valore atteso |
+|---|---|---|---|---|
+| 2 | 5.01 | **18.1%** | 5.5 | −9.2% |
+| 3 | 5.02 | 17.3% | 5.8 | −13.1% |
+| 5 | 5.01 | 15.8% | 6.3 | −21.1% |
+| 7 | 7.09 | 10.0% | 10.0 | −29.3% |
+| 10 | 23.46 | **2.6%** | 38.2 | −38.5% |
+
+Stessa vincita nelle prime tre righe: cambia solo quanto e' probabile
+incassarla. **Piu' gambe, a parita' di quota, significa meno probabilita' di
+vincere**, perche' insieme alle quote si moltiplicano i margini del banco.
+
+Dalla settima gamba in poi la quota 5 non e' nemmeno raggiungibile: nel calcio
+non esistono abbastanza eventi quasi certi, quindi la schedina sfora a 7, poi a
+10, poi a 23 di quota, e la probabilita' crolla.
+
+### Il bonus multipla e' l'unica via d'uscita
+
+La soglia e' esatta e non dipende dalle quote scelte:
+
+```
+EV = bonus x (1 - margine)^gambe - 1   ->   bonus necessario = 1/(1-margine)^gambe
+```
+
+Con margine del 5%: **+29% a cinque gambe, +51% a otto, +67% a dieci.** Se il
+bonus del tuo conto supera quella soglia, allungare la schedina conviene
+davvero; se sta sotto, ogni gamba in piu' e' solo margine regalato.
+
+C'e' un vincolo nascosto da leggere nelle condizioni: quasi tutti i bonus
+richiedono una quota minima per gamba (1.20-1.30). Dieci gambe a 1.20 fanno gia'
+quota 6.19 con probabilita' del 9.7%.
+
+```python
+from bookmaking.staking.schedina import BonusSchedule
+
+bonus = BonusSchedule(by_legs={5: 1.10, 8: 1.30, 10: 1.50},
+                      min_leg_price=1.20, min_legs=5)   # dal TUO conto
+for r in bonus.verdict(margin_per_leg=0.05):
+    print(r["gambe"], r["bonus_offerto"], r["bonus_necessario"], r["conviene"])
+
+piani = advisor.target_tickets(partite, quote, target=5.0, max_legs=10, bonus=bonus)
+```
+
+### Provare a raddoppiare 30 euro
+
+Puntando 2 euro a schedina, fino a raddoppiare o finire il capitale:
+
+| schedina | quota | P(vincita) | raddoppia | va a zero |
+|---|---|---|---|---|
+| 2 gambe | 5.01 | 18.1% | **31.1%** | 68.9% |
+| 3 gambe | 5.02 | 17.3% | 24.4% | 75.6% |
+| 5 gambe | 5.01 | 15.8% | 13.9% | 86.1% |
+| 10 gambe | 23.46 | 2.6% | 24.5% | 75.5% |
+
+Il capitale si esaurisce circa due volte su tre nel caso migliore. La riga a
+dieci gambe risale non perche' sia una scommessa migliore — ha il valore atteso
+peggiore — ma perche' una sola vincita supera l'obiettivo: con valore atteso
+negativo, puntare forte e poche volte massimizza la probabilita' di toccare un
+traguardo, al prezzo di perdere tutto molto piu' spesso.
+
+```bash
+python examples/schedina_quota5.py
+```
+
 ## Usare Goldbet (o qualsiasi book senza feed)
 
 Avere un conto permette di *vedere* e *giocare* le quote, non di riceverle via
@@ -179,9 +248,10 @@ for b in piano.bets:
 
 ## Stato
 
-Fatto e testato (70 test): modello, mercati, rimozione margine, consenso,
+Fatto e testato (84 test): modello, mercati, rimozione margine, consenso,
 fusione, Kelly, schedine con correlazione, backtest, simulatore, adattatori
-dati, inserimento manuale delle quote e selezione con quota richiesta.
+dati, inserimento manuale delle quote, selezione con quota richiesta e
+ottimizzatore di schedine a quota obiettivo con bonus multipla.
 
 **Passo successivo, da eseguire in locale** — richiede accesso a internet, che
 l'ambiente di sviluppo non aveva:
