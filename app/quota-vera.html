@@ -911,6 +911,16 @@ function renderAuto(){
     '<input type="text" id="apiKey" value="'+esc(k)+'" placeholder="incolla qui" autocomplete="off"></div>'+
     '<div><label for="apiReg">Regione</label><select id="apiReg">'+
     '<option value="eu">Europa</option><option value="uk">Regno Unito</option></select></div></div>'+
+    '<div class="kv" style="border:0;padding:8px 0 0"><label style="display:flex;'+
+    'align-items:center;gap:8px;margin:0;font-size:13px;color:var(--ink)">'+
+    '<input type="checkbox" id="apiOU" style="width:18px;height:18px;accent-color:var(--accent)"'+
+    (lsGet("qv2.apiou",false)?" checked":"")+'> scarica anche Over/Under 2.5'+
+    '</label><span></span></div>'+
+    '<p class="note" style="margin-top:6px">L\u2019Over/Under raddoppia i crediti '+
+    'consumati ma migliora molto la stima dei gol attesi, e con essa tutte le '+
+    'combo. Il piano gratuito d\u00e0 500 crediti al mese e un credito vale '+
+    '<i>mercati \u00d7 regioni</i> per campionato: con 5 campionati sono 5 crediti '+
+    'a scaricata, 10 con l\u2019Over/Under.</p>'+
     '<div class="row-btn"><button class="btn ghost" id="btnAuto">Scarica quote</button></div>'+
     '<div id="autoEsito"></div>'+
     '<p class="note"><b>Non ho potuto collaudarlo.</b> Dall’ambiente in cui è stato '+
@@ -919,6 +929,12 @@ function renderAuto(){
     'torna il pannello lo dice: non inventa quote.</p>';
   document.getElementById("apiKey").addEventListener("input",function(){
     lsSet("qv2.apikey",this.value.trim())});
+  var ck=document.getElementById("apiOU");
+  if(ck)ck.addEventListener("change",function(){lsSet("qv2.apiou",this.checked)});
+  var q=lsGet("qv2.apiquota",null);
+  if(q)document.getElementById("autoEsito").innerHTML=
+    '<p class="note">Ultima scaricata: <b class="num">'+esc(q.rimasti)+'</b> crediti '+
+    'rimasti, '+esc(q.usati)+' usati.</p>';
   document.getElementById("btnAuto").addEventListener("click",scaricaQuote)}
 
 function scaricaQuote(){
@@ -926,6 +942,8 @@ function scaricaQuote(){
   var key=(document.getElementById("apiKey").value||"").trim();
   var reg=document.getElementById("apiReg").value;
   if(!key){esito.innerHTML='<div class="warn">Manca la chiave API.</div>';return}
+  var conOU=document.getElementById("apiOU").checked;
+  var mercati=conOU?"h2h,totals":"h2h";
   var divs=Object.keys(SPORT_API).filter(function(d){
     return DATI.partite.some(function(p){return p.div===d})});
   if(!divs.length){esito.innerHTML='<div class="warn">Nessuna divisione con partite in calendario.</div>';return}
@@ -933,11 +951,15 @@ function scaricaQuote(){
   var fatti=0,agganciate=0,nuoveQuote=0,problemi=[];
   divs.forEach(function(d){
     var url="https://api.the-odds-api.com/v4/sports/"+SPORT_API[d]+
-      "/odds?regions="+encodeURIComponent(reg)+"&markets=h2h&oddsFormat=decimal&apiKey="+
+      "/odds?regions="+encodeURIComponent(reg)+"&markets="+mercati+"&oddsFormat=decimal&apiKey="+
       encodeURIComponent(key);
     fetch(url).then(function(r){
+      // il credito residuo viaggia negli header: senza guardarlo il piano
+      // gratuito si esaurisce senza preavviso
+      var rim=r.headers.get("x-requests-remaining"),us=r.headers.get("x-requests-used");
+      if(rim!=null)lsSet("qv2.apiquota",{rimasti:rim,usati:us||"?"});
       if(!r.ok)throw new Error("HTTP "+r.status+(r.status===401?" (chiave rifiutata)":
-        (r.status===429?" (chiamate esaurite)":"")));
+        (r.status===429?" (crediti esauriti)":"")));
       return r.json()}).then(function(dati){
       if(!Array.isArray(dati))throw new Error("risposta di forma inattesa");
       dati.forEach(function(ev){
@@ -950,18 +972,33 @@ function scaricaQuote(){
         if(!cand||best<0.6)return;
         agganciate++;
         (ev.bookmakers||[]).slice(0,4).forEach(function(bk){
-          var m=(bk.markets||[]).filter(function(x){return x.key==="h2h"})[0];
-          if(!m)return;
-          var pr={};
-          (m.outcomes||[]).forEach(function(o){
-            if(o.name===casa)pr["1"]=o.price;
-            else if(o.name===osp)pr["2"]=o.price;
-            else pr["X"]=o.price});
-          if(!(pr["1"]>1&&pr["X"]>1&&pr["2"]>1))return;
-          var righe=righeDi(cand,"1X2").filter(function(r){
-            return (r.book||"").toLowerCase()!==String(bk.key).toLowerCase()});
-          righe.push({book:bk.title||bk.key,prezzi:pr});
-          setRighe(cand,"1X2",righe);nuoveQuote++})});
+          var nome=bk.title||bk.key;
+          var h2h=(bk.markets||[]).filter(function(x){return x.key==="h2h"})[0];
+          if(h2h){
+            var pr={};
+            (h2h.outcomes||[]).forEach(function(o){
+              if(o.name===casa)pr["1"]=o.price;
+              else if(o.name===osp)pr["2"]=o.price;
+              else pr["X"]=o.price});
+            if(pr["1"]>1&&pr["X"]>1&&pr["2"]>1){
+              var righe=righeDi(cand,"1X2").filter(function(r){
+                return (r.book||"").toLowerCase()!==String(nome).toLowerCase()});
+              righe.push({book:nome,prezzi:pr});
+              setRighe(cand,"1X2",righe);nuoveQuote++}}
+          var tot=(bk.markets||[]).filter(function(x){return x.key==="totals"})[0];
+          if(tot){
+            // solo la linea 2.5: e' quella che serve a stringere i gol attesi
+            var o25=(tot.outcomes||[]).filter(function(o){
+              return Math.abs((o.point||0)-2.5)<1e-9});
+            var po={};
+            o25.forEach(function(o){
+              if(/over/i.test(o.name))po["Over"]=o.price;
+              else if(/under/i.test(o.name))po["Under"]=o.price});
+            if(po.Over>1&&po.Under>1){
+              var ro=righeDi(cand,"OU2.5").filter(function(r){
+                return (r.book||"").toLowerCase()!==String(nome).toLowerCase()});
+              ro.push({book:nome,prezzi:po});
+              setRighe(cand,"OU2.5",ro);nuoveQuote++}}})});
     }).catch(function(e){
       problemi.push(d+": "+e.message)
     }).then(function(){
@@ -969,9 +1006,12 @@ function scaricaQuote(){
       if(fatti<divs.length)return;
       salvaQuote();renderLista();renderOccasioni();
       var h="";
+      var q2=lsGet("qv2.apiquota",null);
       if(nuoveQuote)h+='<div class="verdict pos" style="margin-top:10px"><h3>'+
         nuoveQuote+' quote scaricate</h3><p>Su '+agganciate+
-        ' partite agganciate al calendario.</p></div>';
+        ' partite agganciate al calendario.'+
+        (q2?' Restano <b class="num">'+esc(q2.rimasti)+'</b> crediti questo mese.':'')+
+        '</p></div>';
       if(problemi.length)h+='<div class="warn"><b>Non riuscito su '+problemi.length+
         ' campionati.</b><br>'+esc(problemi.slice(0,3).join(" · "))+
         '<br>Se l’errore parla di <i>fetch</i> o CORS, il fornitore non consente '+
