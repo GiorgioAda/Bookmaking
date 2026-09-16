@@ -562,6 +562,8 @@ body.conbarra{padding-bottom:76px}
     l'unico modo per sapere se il calcolo vale qualcosa — e, quando non vale,
     dove esattamente si rompe.</p>
     <div id="calibBox"></div>
+    <div class="row-btn"><button class="btn ghost" id="rgRegCopia">Copia il registro per Claude</button></div>
+    <div id="rgRegEsito"></div>
   </div>
   <div class="panel">
     <div class="eyebrow">Risultati dai calendari</div>
@@ -4244,6 +4246,48 @@ function gambeChiuse(){
         mkt:l.mkt||"?",nome:l.nome||"",quando:g.data})});});
   return out}
 
+/* L'analisi di calibrazione l'app la fa gia' da sola, qui sotto. Ma quando
+   chiedi a Claude di guardarla, i numeri devono arrivargli: il registro vive
+   nel browser e da fuori non lo legge nessuno. Questo lo mette in un testo
+   solo, gamba per gamba, che e' l'unica forma in cui l'analisi si puo' rifare
+   davvero invece di crederci sulla parola. */
+function riassuntoRegistro(){
+  var G=gambeChiuse();
+  var chiuse=state.log.filter(function(g){return g.esito!=="aperta"});
+  var aperte=state.log.filter(function(g){return g.esito==="aperta"});
+  var st=chiuse.reduce(function(a,g){return a+g.stake},0);
+  var ret=chiuse.reduce(function(a,g){return a+(g.esito==="vinta"?g.stake*g.quota:0)},0);
+  var prom=chiuse.reduce(function(a,g){return a+g.stake*g.ev},0);
+  var r=["QuotaVera "+(DATI.versione||"")+" — registro",
+    "banco "+nomeBook(state.book)+" · prezzi "+(RIFERIMENTI[state.rif]||{}).nome+
+      " · peso modello "+Math.round((state.w||0)*100)+"%",
+    "giocate: "+chiuse.length+" chiuse, "+aperte.length+" aperte",
+    "puntato "+fmt(st)+" EUR · incassato "+fmt(ret)+" EUR · profitto "+
+      fmt(ret-st)+" EUR"];
+  if(st>0)r.push("reso reale "+sgn((ret-st)/st)+" contro promesso "+sgn(prom/st));
+  if(G.length){
+    var brier=0,att=0,vinte=0;
+    G.forEach(function(x){var d=x.p-(x.vinta?1:0);brier+=d*d;att+=x.p;vinte+=x.vinta?1:0});
+    r.push("","gambe concluse "+G.length+": vinte "+vinte+", attese "+att.toFixed(1)+
+      ", Brier "+(brier/G.length).toFixed(4)+" (0.2500 = chi dice sempre 50%)");
+  }else r.push("","nessuna gamba conclusa");
+  /* Gamba per gamba: senza il dettaglio si puo' solo ripetere la media che
+     l'app ha gia' scritto, e la media nasconde proprio gli errori opposti che
+     si annullano. */
+  r.push("","dettaglio (prob | esito | quota | mercato | partita | punteggio):");
+  state.log.forEach(function(g){
+    (g.legs||[]).forEach(function(l){
+      if(l.esito!==true&&l.esito!==false)return;
+      r.push("  "+(l.p!=null?l.p.toFixed(4):"?")+" | "+(l.esito?"V":"P")+" | "+
+        (l.price!=null?l.price.toFixed(2):"?")+" | "+(l.mkt||"?")+" "+
+        (l.sel||"")+" | "+(l.casa?l.casa+"-"+l.ospiti:"?")+" | "+
+        (l.punteggio||"?"))})});
+  var aperti=0;
+  state.log.forEach(function(g){(g.legs||[]).forEach(function(l){
+    if(l.esito==null)aperti++})});
+  if(aperti)r.push("  (+"+aperti+" gambe ancora da giocare, non elencate)");
+  return r.join("\n")}
+
 function renderStatistiche(){
   var box=document.getElementById("calibBox");if(!box)return;
   var G=gambeChiuse();
@@ -4699,6 +4743,21 @@ document.getElementById("btnRegister").addEventListener("click",function(){
         quando:pp?pp.quando:null,esito:null}})};
   state.log.push(g);salvaGiocata(g);state.legs=[];
   renderSchedina();renderBudget();showTab("registro")});
+document.getElementById("rgRegCopia").addEventListener("click",function(){
+  var testo=riassuntoRegistro(),e=document.getElementById("rgRegEsito");
+  function manuale(){
+    e.innerHTML='<p class="note">Copia a mano il testo qui sotto e incollalo '+
+      'in chat.</p><textarea rows="14" readonly style="width:100%;'+
+      'font-family:var(--mono);font-size:11.5px;padding:8px;border:1px solid '+
+      'var(--rule-strong);border-radius:3px;background:var(--panel-2);'+
+      'color:var(--ink)">'+esc(testo)+'</textarea>'}
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(testo).then(function(){
+      e.innerHTML='<p class="note">Copiato ('+testo.length+' caratteri). '+
+        'Incollalo in chat: contiene ogni gamba conclusa con la probabilit\u00e0 '+
+        'che le avevo dato e come \u00e8 andata, che \u00e8 quello che serve per '+
+        'rifare i conti invece di crederci sulla parola.</p>'},manuale);
+  else manuale()});
 document.getElementById("btnRisultati").addEventListener("click",aggiornaRisultati);
 document.getElementById("btnWeb").addEventListener("click",function(){aggiornaDaWeb(false)});
 /* All'avvio, una volta ogni sei ore: e' gratis, quindi l'unico costo e' il
