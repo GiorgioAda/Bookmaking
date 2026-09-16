@@ -3707,6 +3707,7 @@ function salvaAncoraggio(n,pct){
   mio.ancoraggi[String(n)]=pct;
   if(n<(mio.gambe_minime||1))mio.gambe_minime=n;
   lsSet(chiave,mio);
+  if(db)db.doc("regole/"+state.book).set(mio).catch(function(){});
   return tolti}
 
 function taraPct(){
@@ -3932,6 +3933,41 @@ function renderDiag(){
   var pu=document.getElementById("diagPulisci");
   if(pu)pu.addEventListener("click",function(){lsSet("qv2.diag",[]);renderDiag()})}
 
+/* Quello che correggi resta nel tuo browser: io da qui non lo vedo, e su
+   GitHub Pages non c'e' nemmeno un archivio condiviso da cui leggerlo. Invece
+   di chiederti di ricopiare i numeri a mano, questo li mette tutti in un testo
+   solo da incollare in chat. */
+function riassuntoBonus(){
+  var bk=bookCorrente(),mio=lsGet("qv2.regole."+state.book,null);
+  var r=["QuotaVera "+(DATI.versione||"")+" — bonus di "+nomeBook(state.book),
+    "origine: "+(bk.ufficiale?"valori tuoi":"valori supposti"),
+    "eventi minimi: "+bk.gambe_minime,
+    "quota minima per evento: "+bk.quota_minima,
+    "eventi entro giorni: "+(bk.giorniMax||"nessun limite"),
+    "vincita massima: "+(bk.maxVincita?bk.maxVincita+" EUR":"nessuna"),
+    "",
+    "scaglioni salvati (eventi: percentuale):"];
+  var anc=bk.ancoraggi||{};
+  Object.keys(anc).map(Number).sort(function(a,b){return a-b}).forEach(function(k){
+    r.push("  "+k+": "+anc[k])});
+  r.push("","curva usata dall'app (~ = interpolato):");
+  for(var n=bk.gambe_minime;n<=Math.max(12,bk.gambe_minime+7);n++){
+    var b=bonusAt(n);
+    r.push("  "+n+" eventi: +"+b.v.toFixed(2)+"%"+(b.est?" ~":""))}
+  /* Anche le giocate registrate, che sono il metro con cui i numeri sopra si
+     verificano: senza di quelle il riassunto dice cosa credo, non cosa e'
+     successo. */
+  if(state.log.length){
+    r.push("","giocate registrate:");
+    state.log.slice(-8).forEach(function(g){
+      r.push("  "+g.data+" · "+g.titolo+" · "+g.stake+" EUR · quota "+
+        fmt(g.quota)+(g.quotaRaw!=null?" (nuda "+fmt(g.quotaRaw)+")":"")+
+        (g.bonus!=null?" · bonus assunto +"+fmt(g.bonus,2)+"%"+
+          (g.bonusEst?"~":""):"")+
+        (g.eventiBonus!=null?" su "+g.eventiBonus+" eventi validi":"")+
+        " · "+g.esito)})}
+  return r.join("\n")}
+
 function renderRegole(){
   var box=document.getElementById("regoleBox");if(!box)return;
   var bk=bookCorrente(),mio=lsGet("qv2.regole."+state.book,null);
@@ -3965,11 +4001,27 @@ function renderRegole(){
     'placeholder="5: 4&#10;6: 6&#10;7: 9">'+esc(testo)+'</textarea></div>'+
     '<div class="row-btn"><button class="btn" id="rgSalva">Salva regolamento</button>'+
     (mio?'<button class="btn ghost" id="rgCancella">Torna ai valori supposti</button>':'')+
+    '<button class="btn ghost" id="rgCopia">Copia per Claude</button>'+
     '</div><div id="rgEsito"></div>'+
     '<p class="note">Scrivi <b>tutti</b> gli scaglioni che il regolamento elenca: '+
     'quelli che mancano vengono interpolati fra i due vicini e restano marcati '+
     'con <span class="num">~</span>, perché una percentuale inventata da noi non '+
     'deve somigliare a una letta da te.</p>';
+  var cp=document.getElementById("rgCopia");
+  if(cp)cp.addEventListener("click",function(){
+    var testo=riassuntoBonus(),e=document.getElementById("rgEsito");
+    function manuale(){
+      e.innerHTML='<p class="note">Copia a mano il testo qui sotto e incollalo '+
+        'in chat.</p><textarea rows="12" readonly style="width:100%;'+
+        'font-family:var(--mono);font-size:12px;padding:8px;border:1px solid '+
+        'var(--rule-strong);border-radius:3px;background:var(--panel-2);'+
+        'color:var(--ink)">'+esc(testo)+'</textarea>'}
+    if(navigator.clipboard&&navigator.clipboard.writeText)
+      navigator.clipboard.writeText(testo).then(function(){
+        e.innerHTML='<p class="note">Copiato ('+testo.length+' caratteri). '+
+          'Incollalo in chat e Claude vede esattamente cosa usa l\u2019app.</p>'},
+        manuale);
+    else manuale()});
   var sv=document.getElementById("rgSalva");
   if(sv)sv.addEventListener("click",function(){
     var righe=(document.getElementById("rgTab").value||"").split(/[\n,;]+/);
@@ -3989,6 +4041,7 @@ function renderRegole(){
     g.giorniMax=parseInt(document.getElementById("rgGG").value,10)||null;
     g.ancoraggi=anc;
     lsSet("qv2.regole."+state.book,g);
+    if(db)db.doc("regole/"+state.book).set(g).catch(function(){});
     renderRegole();renderBonus();renderGen();
     document.getElementById("rgEsito").innerHTML='<div class="verdict pos">'+
       '<h3>'+n+' scaglion'+(n===1?'e':'i')+' salvati</h3><p>Da ora i conti di '+
@@ -4452,7 +4505,23 @@ function renderRegistro(){
         ' eventi \u2192 <b class="num">+'+fmt(pct,2)+'%</b>, misurato sul tuo conto.'+
         (tolti.length?' Tolti perch\u00e9 lo contraddicevano (un bonus non cala '+
           'aggiungendo eventi): '+esc(tolti.join(", "))+'.':'')+
-        '</p></div>';
+        '</p></div>'+
+        '<div class="row-btn"><button class="btn ghost sm" id="cfCopia-'+id+
+        '">Copia per Claude</button></div><div id="cfC-'+id+'"></div>';
+      var cb=document.getElementById("cfCopia-"+id);
+      if(cb)cb.addEventListener("click",function(){
+        var testo=riassuntoBonus(),n2=document.getElementById("cfC-"+id);
+        function manuale(){
+          n2.innerHTML='<p class="note">Copia a mano e incolla in chat.</p>'+
+            '<textarea rows="10" readonly style="width:100%;font-family:var(--mono);'+
+            'font-size:12px;padding:8px;border:1px solid var(--rule-strong);'+
+            'border-radius:3px;background:var(--panel-2);color:var(--ink)">'+
+            esc(testo)+'</textarea>'}
+        if(navigator.clipboard&&navigator.clipboard.writeText)
+          navigator.clipboard.writeText(testo).then(function(){
+            n2.innerHTML='<p class="note">Copiato. Incollalo in chat: cos\u00ec '+
+              'Claude vede la tabella che l\u2019app usa davvero.</p>'},manuale);
+        else manuale()});
       renderBonus();renderGen()})});
   Array.prototype.forEach.call(lb.querySelectorAll("[data-win]"),function(b){
     b.addEventListener("click",function(){settle(b.getAttribute("data-win"),"vinta")})});
