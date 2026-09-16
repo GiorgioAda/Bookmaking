@@ -118,6 +118,9 @@ td:first-child{text-align:left;font-family:var(--sans)}
 tr:last-child td{border-bottom:0}
 td.pos{color:var(--pos)}td.neg{color:var(--neg)}
 tr.hl td{background:var(--accent-bg)}
+/* Una riga che si puo' toccare deve sembrarlo prima di essere toccata. */
+tr[data-leva]:hover td{background:var(--panel-2)}
+tr[data-leva]:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .q{color:var(--accent);font-weight:600}
 
 /* liste */
@@ -431,6 +434,10 @@ body.conbarra{padding-bottom:76px}
   </div>
   <div class="panel"><div class="eyebrow">Gambe</div><div id="legsBox"></div></div>
   <div id="slipVerdict"></div>
+  <div class="panel" id="taraPanel" hidden>
+    <div class="eyebrow">Il bonus vero del tuo banco</div>
+    <div id="taraBox"></div>
+  </div>
   <div class="panel" id="targetPanel" hidden>
     <div class="eyebrow">Quante gambe servono davvero</div>
     <div id="targetBox"></div>
@@ -3600,6 +3607,11 @@ function mostraGen(){
     'probabilit\u00e0, non per numero di gambe.</p>';
   t+=levaObiettivo(stake,r.prob);
   e.innerHTML=t;
+  Array.prototype.forEach.call(e.querySelectorAll("[data-leva]"),function(tr){
+    tr.addEventListener("click",function(){
+      vaiAObiettivo(parseFloat(tr.getAttribute("data-leva")))});
+    tr.addEventListener("keydown",function(ev){
+      if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();tr.click()}})});
   var bt=document.getElementById("btnGenTutte");
   if(bt)bt.addEventListener("click",function(){state.genTutte=true;mostraGen()});
   document.getElementById("btnGenUse").addEventListener("click",function(){
@@ -3632,15 +3644,133 @@ function levaObiettivo(stake,probAttuale){
   var h='<div class="eyebrow" style="margin-top:18px">Dove sta davvero la leva</div>'+
     '<p class="lede" style="margin-bottom:8px">Stesse partite, stesso intervallo di '+
     'gambe, obiettivo diverso. Ridurre le gambe sposta la probabilit\u00e0 di qualche '+
-    'punto; l\u2019obiettivo la cambia di parecchio.</p>'+
+    'punto; l\u2019obiettivo la cambia di parecchio. <b>Tocca una riga</b> per '+
+    'rifare la ricerca su quell\u2019obiettivo.</p>'+
     '<div class="tbl-scroll"><table><thead><tr><th>Obiettivo</th><th>Gambe</th>'+
     '<th>Vincita</th><th>P(vincita)</th><th>1 su</th></tr></thead><tbody>';
+  /* La tabella mostrava quanto sposta l'obiettivo e poi ti lasciava a riscrivere
+     il numero a mano nel campo in cima e a premere di nuovo Cerca. Il confronto
+     e' gia' calcolato: ogni riga porta con se' la giocata che descrive. */
   righe.forEach(function(x){
-    h+='<tr'+(Math.abs(x.q-q)<1e-9?' class="hl"':'')+'><td class="num">'+fmt(x.q)+
+    var qui=Math.abs(x.q-q)<1e-9;
+    h+='<tr'+(qui?' class="hl"':'')+' data-leva="'+x.q+'" tabindex="0" '+
+      'role="button" style="cursor:pointer" aria-label="rifai la ricerca a quota '+
+      fmt(x.q)+'">'+
+      '<td class="num"><b>'+fmt(x.q)+'</b>'+(qui?' <span class="pill">ora</span>':'')+
       '</td><td>'+x.n+'</td><td class="num">'+fmt(stake*x.quota)+'\u20ac</td><td>'+
       pct(x.prob)+'</td><td>'+fmt(1/x.prob,1)+'</td></tr>'});
   h+='</tbody></table></div>';
   return h}
+
+/* Rifa' la ricerca su un obiettivo diverso, aggiornando anche il campo in cima:
+   i due numeri devono sempre dire la stessa cosa, altrimenti la schedina che
+   vedi e quella che il campo descrive divergono senza che tu te ne accorga. */
+function vaiAObiettivo(t){
+  var scelte=state.scelte.map(trovaPartita).filter(Boolean);
+  if(!scelte.length)return;
+  var f=document.getElementById("fTarget");
+  if(f)f.value=t;
+  state.genQ=t;
+  state.genTutte=false;
+  var t0=Date.now();
+  state.gen=generaSchedina(scelte,t,Math.min(10,state.genN||6),
+    state.genCombo===false,state.genMin||1);
+  state.genMs=Date.now()-t0;
+  mostraGen();renderSchedina();
+  var g=document.getElementById("genEsito");
+  if(g)g.scrollIntoView({block:"start"})}
+
+/* Il bonus che l'app mostra viene da una curva interpolata fra pochi
+   ancoraggi presi da siti di comparazione: fra uno scaglione e l'altro e' una
+   supposizione, marcata con ~. Ma quando riporti la schedina sul banco vedi il
+   numero vero, e quello e' l'unico che conta davvero. Questo campo lo
+   raccoglie: una misura dal tuo conto vale piu' di qualunque tabella. */
+function salvaAncoraggio(n,pct){
+  var chiave="qv2.regole."+state.book;
+  var mio=lsGet(chiave,null),base=DATI.bookmaker[state.book]||{};
+  if(!mio||!mio.ancoraggi||!Object.keys(mio.ancoraggi).length){
+    mio={gambe_minime:base.gambe_minime||1,quota_minima:base.quota_minima||1.01,
+      maxVincita:base.maxVincita||null,giorniMax:base.giorniMax||null,ancoraggi:{}};
+    Object.keys(base.ancoraggi||{}).forEach(function(k){
+      mio.ancoraggi[k]=base.ancoraggi[k]})}
+  /* Un bonus non puo' calare aggiungendo eventi. Gli scaglioni che lo
+     farebbero calare contraddicono la misura, e fra una misura dal tuo conto e
+     un numero preso da un sito di comparazione vince la misura: quelli li
+     togliamo, dicendo quali. */
+  var tolti=[];
+  Object.keys(mio.ancoraggi).forEach(function(k){
+    var kk=+k,v=mio.ancoraggi[k];
+    if(kk===n)return;
+    if((kk<n&&v>pct)||(kk>n&&v<pct)){
+      tolti.push(kk+" event"+(kk===1?"o":"i")+": +"+v+"%");
+      delete mio.ancoraggi[k]}});
+  mio.ancoraggi[String(n)]=pct;
+  if(n<(mio.gambe_minime||1))mio.gambe_minime=n;
+  lsSet(chiave,mio);
+  return tolti}
+
+function taraPct(){
+  var v=parseFloat((document.getElementById("taV")||{}).value);
+  if(!isFinite(v)||v<=0)return null;
+  if((document.getElementById("taU")||{}).value!=="eur")return v;
+  /* Il banco scrive il bonus in euro: per riportarlo a percentuale serve la
+     quota senza bonus, che e' quella su cui il banco stesso lo calcola. */
+  var s=slipStats(state.legs),st=importo();
+  if(!(st>0)||!(s.quota>0))return null;
+  return v/(st*s.quota)*100}
+
+function taraNota(){
+  var nota=document.getElementById("taNota");if(!nota)return;
+  var pct=taraPct(),eur=(document.getElementById("taU")||{}).value==="eur";
+  if(pct==null){nota.innerHTML="";return}
+  var s=slipStats(state.legs),st=importo();
+  nota.innerHTML='<p class="note">'+(eur?
+    fmt(parseFloat(document.getElementById("taV").value),2)+' € su '+fmt(st)+
+    ' € a quota '+fmt(s.quota)+' fanno <b class="num">+'+fmt(pct,2)+'%</b>. ':'')+
+    'Diventa lo scaglione di riferimento per '+
+    (parseInt(document.getElementById("taN").value,10)||0)+
+    ' eventi, e la curva intorno si ricalcola su questo.</p>'}
+
+function renderTara(){
+  var pan=document.getElementById("taraPanel"),box=document.getElementById("taraBox");
+  if(!pan||!box)return;
+  if(!state.legs.length){pan.hidden=true;return}
+  pan.hidden=false;
+  var s=slipStats(state.legs),n=s.qual;
+  box.innerHTML=
+    '<p class="lede" style="margin-bottom:10px">Con <b>'+n+' event'+(n===1?'o':'i')+
+    '</b> validi l’app si aspetta <b class="num">+'+fmt(s.bonus,2)+'%</b> '+
+    (s.bonusEst?'<b>stimato</b> fra due scaglioni noti':'letto dal regolamento')+
+    '. Se <b>'+esc(nomeBook(state.book))+'</b> te ne dà un altro, scrivilo qui.</p>'+
+    '<div class="grid g3">'+
+    '<div><label for="taN">Eventi</label>'+
+    '<input type="number" id="taN" min="1" step="1" value="'+n+'" inputmode="numeric"></div>'+
+    '<div><label for="taV">Bonus dato</label>'+
+    '<input type="number" id="taV" step="0.01" min="0" inputmode="decimal" placeholder="6,96"></div>'+
+    '<div><label for="taU">Espresso in</label><select id="taU">'+
+    '<option value="pct">percento</option><option value="eur">euro</option>'+
+    '</select></div></div><div id="taNota"></div>'+
+    '<div class="row-btn"><button class="btn" id="taSalva">Correggi la tabella</button></div>'+
+    '<div id="taEsito"></div>'+
+    '<p class="note">Serve perché gli scaglioni intermedi l’app non li '+
+    'conosce: li interpola fra quelli noti e li marca con <span class="num">~</span>. '+
+    'Un valore che hai letto sul tuo conto li sostituisce, e resta nel tuo browser.</p>';
+  ["taV","taN"].forEach(function(id){
+    document.getElementById(id).addEventListener("input",taraNota)});
+  document.getElementById("taU").addEventListener("change",taraNota);
+  document.getElementById("taSalva").addEventListener("click",function(){
+    var e=document.getElementById("taEsito");
+    var pct=taraPct(),nn=parseInt(document.getElementById("taN").value,10);
+    if(pct==null||!(nn>0)){
+      e.innerHTML='<div class="warn">Servono il numero di eventi e il bonus '+
+        'che il banco ti ha dato.</div>';return}
+    var tolti=salvaAncoraggio(nn,Math.round(pct*100)/100);
+    e.innerHTML='<div class="verdict pos"><h3>Tabella corretta</h3>'+
+      '<p>'+nn+' eventi → <b class="num">+'+fmt(pct,2)+'%</b>, preso dal tuo '+
+      'conto e non da un sito.'+(tolti.length?' Tolti perché lo '+
+        'contraddicevano (un bonus non cala aggiungendo eventi): '+
+        esc(tolti.join(", "))+'.':'')+'</p></div>';
+    renderSchedina();renderGen();renderBonus()})}
 
 function renderSchedina(){
   var box=document.getElementById("legsBox");
@@ -3651,7 +3781,7 @@ function renderSchedina(){
     ["slipVerdict","targetBox","frontTable"].forEach(function(id){
       document.getElementById(id).innerHTML=""});
     document.getElementById("frontNote").textContent="";
-    ["targetPanel","frontPanel","copyPanel"].forEach(function(id){
+    ["targetPanel","frontPanel","copyPanel","taraPanel"].forEach(function(id){
       document.getElementById(id).hidden=true});return}
   ["targetPanel","frontPanel"].forEach(function(id){
     document.getElementById(id).hidden=false});
@@ -3692,6 +3822,8 @@ function renderSchedina(){
     '<div class="big">'+sgn(s.ev)+'</div><p>Vince <b class="num">'+pct(s.prob)+
     '</b> delle volte — una ogni <b class="num">'+fmt(1/s.prob,1)+'</b> tentativi. '+
     'Con '+fmt(stake)+' € incassi <b class="num">'+fmt(stake*s.eff)+' €</b>.</p></div>'+warn;
+
+  renderTara();
 
   var target=obiettivo();
   var r=sottoinsiemi(state.legs,target),tb=document.getElementById("targetBox");
