@@ -4290,6 +4290,67 @@ function renderStatistiche(){
       'correggere: il margine che le stimo, o la probabilit\u00e0 stessa.</p>'}
   box.innerHTML=h}
 
+/* Il confronto col banco si fa qui, sulla giocata registrata: e' il momento in
+   cui hai davanti la schedina vera e il suo bonus vero. L'app conserva la quota
+   nuda e il bonus che aveva supposto, quindi lo scarto si misura invece di
+   ricordarlo a memoria. Le giocate registrate prima non hanno la quota nuda: la
+   si chiede, ed e' anche piu' affidabile perche' e' il numero del banco. */
+function bloccoConfronto(g){
+  if(!g.legs||!g.legs.length)return"";
+  var n=g.eventiBonus||g.legs.length;
+  var atteso=g.bonus!=null?g.bonus:null;
+  return'<div class="conf" data-cf="'+g.id+'">'+
+    '<div class="eyebrow" style="margin:12px 0 8px">Il bonus del banco</div>'+
+    (atteso!=null?'<p class="note" style="margin-top:0">L’app aveva calcolato '+
+      '<b class="num">+'+fmt(atteso,2)+'%</b>'+(g.bonusEst?' (stimato)':'')+
+      ' su '+n+' event'+(n===1?'o':'i')+' validi.</p>':
+      '<p class="note" style="margin-top:0">Questa giocata non conserva il bonus '+
+      'che l’app aveva supposto: è di prima.</p>')+
+    '<div class="grid g3" style="margin-top:8px">'+
+    '<div><label for="cfQ-'+g.id+'">Quota del banco</label>'+
+    '<input type="number" id="cfQ-'+g.id+'" step="0.01" min="1" inputmode="decimal" '+
+    'value="'+(g.quotaRaw!=null?fmt(g.quotaRaw):"")+'" placeholder="senza bonus"></div>'+
+    '<div><label for="cfV-'+g.id+'">Bonus dato</label>'+
+    '<input type="number" id="cfV-'+g.id+'" step="0.01" min="0" inputmode="decimal" '+
+    'placeholder="6,96"></div>'+
+    '<div><label for="cfU-'+g.id+'">In</label><select id="cfU-'+g.id+'">'+
+    '<option value="eur">euro</option><option value="pct">percento</option>'+
+    '</select></div></div>'+
+    '<div id="cfN-'+g.id+'"></div>'+
+    '<div class="row-btn"><button class="btn ghost sm" data-cfs="'+g.id+
+    '">Correggi la tabella</button></div><div id="cfE-'+g.id+'"></div></div>'}
+
+/* La conversione da euro a percentuale: il banco calcola il bonus sulla vincita
+   lorda, cioe' puntata per quota. Senza quota non si converte niente, e
+   inventarne una sarebbe peggio che non rispondere. */
+function confrontoPct(g){
+  var q=parseFloat((document.getElementById("cfQ-"+g.id)||{}).value);
+  var v=parseFloat((document.getElementById("cfV-"+g.id)||{}).value);
+  var eur=(document.getElementById("cfU-"+g.id)||{}).value==="eur";
+  if(!isFinite(v)||v<=0)return null;
+  if(!eur)return v;
+  if(!isFinite(q)||q<=1||!(g.stake>0))return null;
+  return v/(g.stake*q)*100}
+
+function confrontoNota(g){
+  var nota=document.getElementById("cfN-"+g.id);if(!nota)return;
+  var pct=confrontoPct(g);
+  if(pct==null){
+    var eur=(document.getElementById("cfU-"+g.id)||{}).value==="eur";
+    var v=parseFloat((document.getElementById("cfV-"+g.id)||{}).value);
+    nota.innerHTML=(eur&&isFinite(v)&&v>0)?
+      '<p class="note">Serve la quota che il banco mostrava, senza bonus: '+
+      'il bonus in euro si calcola su quella.</p>':"";
+    return}
+  var n=g.eventiBonus||g.legs.length,scarto="";
+  if(g.bonus!=null){
+    var d=pct-g.bonus;
+    scarto=' L’app diceva <b class="num">+'+fmt(g.bonus,2)+'%</b>: '+
+      (Math.abs(d)<0.05?'coincide.':'<b style="color:var(--'+(d<0?'neg':'pos')+')">'+
+        (d>0?'+':'')+fmt(d,2)+' punti</b> di scarto.')}
+  nota.innerHTML='<p class="note">Fa <b class="num">+'+fmt(pct,2)+'%</b> su '+n+
+    ' event'+(n===1?'o':'i')+'.'+scarto+'</p>'}
+
 var LOG_APERTE={};
 /* "2026-09-16" e' come la data sta su disco, non come si legge. */
 function dataIt(d){
@@ -4369,6 +4430,7 @@ function renderRegistro(){
       '<div class="gioc-b">'+
       (righe||'<p class="note">Questa giocata non conserva gli esiti: è '+
         'stata registrata prima che l’app li salvasse.</p>')+
+      bloccoConfronto(g)+
       (g.nota?'<p class="note" style="color:var(--warn);border-color:var(--warn)">'+
         esc(g.nota)+'</p>':'')+
       '<div class="row-btn">'+
@@ -4384,6 +4446,33 @@ function renderRegistro(){
     d.addEventListener("toggle",function(){
       if(d.open)LOG_APERTE[d.getAttribute("data-g")]=1;
       else delete LOG_APERTE[d.getAttribute("data-g")]})});
+  Array.prototype.forEach.call(lb.querySelectorAll(".conf"),function(c){
+    var id=c.getAttribute("data-cf");
+    var g=state.log.filter(function(x){return x.id===id})[0];
+    if(!g)return;
+    ["cfQ-","cfV-"].forEach(function(pre){
+      var el=document.getElementById(pre+id);
+      if(el)el.addEventListener("input",function(){confrontoNota(g)})});
+    var u=document.getElementById("cfU-"+id);
+    if(u)u.addEventListener("change",function(){confrontoNota(g)})});
+  Array.prototype.forEach.call(lb.querySelectorAll("[data-cfs]"),function(b){
+    b.addEventListener("click",function(){
+      var id=b.getAttribute("data-cfs");
+      var g=state.log.filter(function(x){return x.id===id})[0];
+      if(!g)return;
+      var e=document.getElementById("cfE-"+id),pct=confrontoPct(g);
+      if(pct==null){
+        e.innerHTML='<div class="warn">Servono il bonus che il banco ti ha dato '+
+          'e, se lo scrivi in euro, la quota su cui l\u2019ha calcolato.</div>';return}
+      var n=g.eventiBonus||g.legs.length;
+      var tolti=salvaAncoraggio(n,Math.round(pct*100)/100);
+      LOG_APERTE[id]=1;
+      e.innerHTML='<div class="verdict pos"><h3>Tabella corretta</h3><p>'+n+
+        ' eventi \u2192 <b class="num">+'+fmt(pct,2)+'%</b>, misurato sul tuo conto.'+
+        (tolti.length?' Tolti perch\u00e9 lo contraddicevano (un bonus non cala '+
+          'aggiungendo eventi): '+esc(tolti.join(", "))+'.':'')+
+        '</p></div>';
+      renderBonus();renderGen()})});
   Array.prototype.forEach.call(lb.querySelectorAll("[data-win]"),function(b){
     b.addEventListener("click",function(){settle(b.getAttribute("data-win"),"vinta")})});
   Array.prototype.forEach.call(lb.querySelectorAll("[data-lose]"),function(b){
@@ -4547,7 +4636,8 @@ document.getElementById("btnRegister").addEventListener("click",function(){
   var g={id:"b"+Date.now()+Math.floor(Math.random()*1000),
     data:new Date().toISOString().slice(0,10),
     titolo:state.legs.length===1?state.legs[0].nome:state.legs.length+" gambe",
-    quota:s.eff,prob:s.prob,ev:s.ev,stake:stake,esito:"aperta",
+    quota:s.eff,quotaRaw:s.quota,bonus:s.bonus,bonusEst:s.bonusEst,
+    eventiBonus:s.qual,prob:s.prob,ev:s.ev,stake:stake,esito:"aperta",
     // Senza partita, mercato e selezione una giocata non e' verificabile:
     // resta un titolo che solo tu sai cosa significava. Si salva quanto basta
     // a ricalcolarne l'esito da un punteggio.
