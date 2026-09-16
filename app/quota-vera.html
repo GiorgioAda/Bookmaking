@@ -111,6 +111,7 @@ th{font-family:var(--disp);font-size:10px;font-weight:600;letter-spacing:.07em;
   text-transform:uppercase;color:var(--ink-faint);text-align:right;
   padding:0 0 6px;border-bottom:1px solid var(--rule)}
 th:first-child{text-align:left}
+th+th,td+td{padding-left:10px}
 td{padding:7px 0;border-bottom:1px solid var(--rule);text-align:right;
   font-family:var(--mono);font-variant-numeric:tabular-nums}
 td:first-child{text-align:left;font-family:var(--sans)}
@@ -198,6 +199,21 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
 .selbar .t b{color:var(--ink)}
 .selbar .btn{flex:0 0 auto;white-space:nowrap}
 body.conbarra{padding-bottom:76px}
+/* Un "perche'" in linea. La spiegazione lunga sta nell'attributo e compare solo
+   a chi la chiede: la riga resta corta per chi gia' sa, senza perdere il
+   motivo per chi apre l'app la prima volta. */
+.perche{color:var(--accent);border-bottom:1px dotted var(--accent);cursor:pointer;
+  font-size:12.5px;white-space:nowrap}
+.perche:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.perche[aria-expanded="true"]{color:var(--ink-faint);border-bottom-color:var(--rule-strong)}
+
+/* Il richiudibile che raccoglie le impostazioni della scheda Partite. */
+.avz{margin-bottom:14px}
+.avz>summary{font-family:var(--disp);font-weight:600;font-size:12px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);
+  cursor:pointer;padding:10px 0;border-top:1px solid var(--rule)}
+.avz>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.avz[open]>summary{color:var(--ink)}
 </style>
 
 <div class="wrap">
@@ -222,28 +238,29 @@ body.conbarra{padding-bottom:76px}
 <section id="p-partite" role="tabpanel" aria-labelledby="tab-partite">
   <div id="listaView">
     <div id="ambienteBanner"></div>
-    <p class="lede">Calendario delle prossime partite con il pronostico del modello,
-    stimato su <b>104.556 partite dal 2000 a oggi</b>. Apri una partita e inserisci
-    le quote dei bookmaker per trovare il prezzo migliore e il valore.</p>
-    <div class="panel">
+    <p class="lede"><b>Spunta le partite</b> che ti interessano: in fondo allo
+    schermo compare il pulsante per costruire la schedina. Tocca una partita per
+    vederne tutti gli esiti.</p>
+    <div class="panel avanzato">
       <div class="eyebrow">Il tuo bookmaker</div>
-      <p class="lede" style="margin-bottom:10px">Serve per il <b>bonus multipla</b>,
-      che cambia da banco a banco. I <i>prezzi</i> invece vengono dai bookmaker che
-      il fornitore di quote copre, che spesso non comprendono il tuo: quale prezzo
-      usare lo scegli nella scheda Schedina.</p>
+      <p class="lede" style="margin-bottom:10px">Decide il <b>bonus multipla</b>.
+      <span class="perche" data-perche="I prezzi non vengono da qui: arrivano dai
+      bookmaker che il fornitore di quote copre, che spesso non comprendono il tuo.
+      Quale prezzo usare si sceglie nella scheda Schedina.">perché</span></p>
       <div class="filters" id="bookPicker" style="margin-bottom:0"></div>
     </div>
-    <div class="panel">
+    <div class="panel avanzato">
       <div class="eyebrow">Calendari e risultati</div>
-      <p class="lede" style="margin-bottom:10px">Fonte pubblica, senza chiave e
-      senza crediti: si aggiorna da sola all'apertura. Porta le partite di sette
-      campionati e i punteggi di quelle già giocate, che chiudono le giocate nel
-      registro. Le quote no: quelle richiedono una chiave, qui sotto.</p>
+      <p class="lede" style="margin-bottom:10px">Si aggiornano da soli all'apertura,
+      senza chiave. <span class="perche" data-perche="La fonte è openfootball, pubblica
+      e senza crediti. Porta le partite di sette campionati e i punteggi di quelle già
+      giocate, che chiudono le giocate nel registro. Le quote no: quelle richiedono
+      una chiave presso un fornitore.">perché</span></p>
       <div class="row-btn" style="margin-top:0">
         <button class="btn" id="btnWeb">Aggiorna ora</button></div>
       <div id="webEsito"></div>
     </div>
-    <div class="panel">
+    <div class="panel avanzato">
       <div class="eyebrow">Quote automatiche</div>
       <div id="autoBox"></div>
     </div>
@@ -251,14 +268,15 @@ body.conbarra{padding-bottom:76px}
       <div class="eyebrow">Le occasioni migliori</div>
       <div id="occasioniBox"></div>
     </div>
+    <div class="warn" id="avvisoCal" hidden style="margin:0 0 14px"></div>
     <div class="filters" id="filtri"></div>
     <div class="panel"><div id="listaBox"></div></div>
-    <div class="panel">
+    <div class="panel avanzato">
       <div class="eyebrow">Partita fuori calendario</div>
-      <p class="lede" style="margin-bottom:10px">Champions, Europa e Conference League,
-      o qualunque altra partita: qui il modello non arriva — le sue scale non sono
-      confrontabili fra nazioni — ma le quote dei bookmaker sì, e sono la stima
-      più accurata che abbiamo.</p>
+      <p class="lede" style="margin-bottom:10px">Qualunque partita non in elenco.
+      <span class="perche" data-perche="Su una partita fra squadre di nazioni diverse
+      il modello non dice nulla: le sue scale sono per nazione e non si confrontano.
+      Le quote dei bookmaker sì, e sono la stima più accurata che abbiamo.">perché</span></p>
       <div class="grid g2">
         <div><label for="nvCasa">Squadra di casa</label>
           <input type="text" id="nvCasa" placeholder="Inter" autocomplete="off"></div>
@@ -267,11 +285,6 @@ body.conbarra{padding-bottom:76px}
       </div>
       <div class="row-btn"><button class="btn ghost" id="btnNuova">Aggiungi e apri</button></div>
     </div>
-    <div class="warn"><b>Calendari disponibili per 5 divisioni su 11</b> — Serie A,
-    Premier League, Championship, Bundesliga, LaLiga. Serie B, 2.Bundesliga, LaLiga2,
-    Ligue 1 e 2 e Portogallo non hanno ancora un calendario pubblicato per questa
-    stagione. Il <em>modello</em> le copre tutte e undici: manca solo l'elenco delle
-    partite future, quindi aggiungile a mano qui sopra.</div>
     <p class="stamp" id="stamp"></p>
   </div>
 
@@ -314,7 +327,8 @@ body.conbarra{padding-bottom:76px}
       regolamento prevede, prezzati dalla matrice dei risultati. Spesso pagano
       più di un esito secco a parità di probabilità, perché il banco li cura
       meno. Scrivi la quota che trovi sul tuo bookmaker e saprai se conviene.</p>
-      <div class="filters" id="cboFam" style="max-height:150px;overflow-y:auto"></div>
+      <label for="cboFam">Famiglia di esiti</label>
+      <select id="cboFam" style="margin-bottom:10px"></select>
       <div id="cboBox"></div>
     </div>
     <div class="panel">
@@ -335,8 +349,21 @@ body.conbarra{padding-bottom:76px}
 
 <!-- ===== SCHEDINA ===== -->
 <section id="p-schedina" role="tabpanel" aria-labelledby="tab-schedina" hidden>
-  <p class="lede">Le quote si moltiplicano, ma con loro si moltiplicano i margini
-  del banco. Qui vedi cosa costa davvero ogni gamba in più.</p>
+  <p class="lede"><b>Dimmi quanto vuoi vincere</b> e cerco fra le partite che hai
+  spuntato la giocata più probabile che ci arriva.</p>
+  <!-- Questi due campi comandano tutto quello che c'e' sotto. Prima ce n'erano
+       due coppie, una nel generatore e una a meta' pagina, con nomi diversi
+       ("Importo" e "Puntata") per la stessa cosa: chi scriveva 20 in una e 5
+       nell'altra leggeva due risposte in contraddizione sulla stessa schedina. -->
+  <div class="panel">
+    <div class="eyebrow">Cosa vuoi ottenere</div>
+    <div class="grid g2">
+      <div><label for="fTarget">Quota da raggiungere</label>
+        <input type="number" id="fTarget" step="0.5" min="1.5" value="5" inputmode="decimal"></div>
+      <div><label for="fStake">Importo (€)</label>
+        <input type="number" id="fStake" step="0.5" min="0.5" value="2" inputmode="decimal"></div>
+    </div>
+  </div>
   <div class="panel">
     <div class="eyebrow">Genera dalla selezione</div>
     <div id="genBox"></div>
@@ -347,17 +374,11 @@ body.conbarra{padding-bottom:76px}
   </div>
   <div class="panel"><div class="eyebrow">Gambe</div><div id="legsBox"></div></div>
   <div id="slipVerdict"></div>
-  <div class="panel">
-    <div class="eyebrow">Obiettivo quota</div>
-    <div class="grid g2">
-      <div><label for="fTarget">Quota da raggiungere</label>
-        <input type="number" id="fTarget" step="0.5" min="1.5" value="5" inputmode="decimal"></div>
-      <div><label for="fStake">Puntata (€)</label>
-        <input type="number" id="fStake" step="0.5" min="0.5" value="2" inputmode="decimal"></div>
-    </div>
+  <div class="panel" id="targetPanel" hidden>
+    <div class="eyebrow">Quante gambe servono davvero</div>
     <div id="targetBox"></div>
   </div>
-  <div class="panel">
+  <div class="panel" id="frontPanel" hidden>
     <div class="eyebrow">Quanto costa allungare</div>
     <div class="tbl-scroll"><table id="frontTable"></table></div>
     <p class="note" id="frontNote"></p>
@@ -2605,7 +2626,26 @@ function renderSelBar(){
     showTab("schedina")})}
 
 /* ---- elenco partite ---- */
+
+/* Quante competizioni hai davvero in elenco. Al suo posto c'era un avviso
+   scritto a mano che diceva "cinque su undici": e' invecchiato il giorno in cui
+   le fonti sono diventate quattordici, e un avviso sbagliato e' peggio di
+   nessun avviso. Adesso lo conta la lista stessa. */
+function renderAvvisoCal(){
+  var box=document.getElementById("avvisoCal");if(!box)return;
+  var ho={};tutteLePartite().forEach(function(p){ho[p.div]=1});
+  var tutte=Object.keys(OF_FONTI);
+  Object.keys(COMP_UEFA).forEach(function(k){if(tutte.indexOf(k)<0)tutte.push(k)});
+  var senza=tutte.filter(function(d){return !ho[d]});
+  if(!senza.length){box.hidden=true;return}
+  box.hidden=false;
+  box.innerHTML='<b>'+(tutte.length-senza.length)+' competizioni su '+tutte.length+
+    '</b> hanno partite in elenco. Mancano '+esc(senza.map(nomeDiv).join(", "))+
+    ': aprile da <b>Fonti e impostazioni</b>, in fondo alla pagina, e premi '+
+    '<b>Aggiorna ora</b>.'}
+
 function renderFiltri(){
+  renderAvvisoCal();
   var divs={};tutteLePartite().forEach(function(p){divs[p.div]=(divs[p.div]||0)+1});
   var h='<button class="chip" data-f="tutte" aria-pressed="'+(state.filtro==="tutte")+'">Tutte</button>';
   Object.keys(divs).sort().forEach(function(d){
@@ -2913,12 +2953,13 @@ function renderCombo(p){
   var gruppi=[];
   COMBO.forEach(function(c){if(gruppi.indexOf(c.gruppo)<0)gruppi.push(c.gruppo)});
   if(gruppi.indexOf(state.cboFam)<0)state.cboFam=gruppi[0];
+  /* Quattordici famiglie come pulsanti riempivano uno schermo di telefono e
+     costringevano a scorrere dentro un riquadro per trovarne una: un menu le
+     tiene tutte in una riga sola e sul telefono si apre nativo. */
   fam.innerHTML=gruppi.map(function(gr){
-    return'<button class="chip" data-cf="'+esc(gr)+'" aria-pressed="'+
-      (state.cboFam===gr)+'">'+esc(gr)+'</button>'}).join("");
-  Array.prototype.forEach.call(fam.querySelectorAll("[data-cf]"),function(b){
-    b.addEventListener("click",function(){
-      state.cboFam=b.getAttribute("data-cf");renderCombo(p)})});
+    return'<option value="'+esc(gr)+'"'+(state.cboFam===gr?' selected':'')+'>'+
+      esc(gr)+'</option>'}).join("");
+  fam.onchange=function(){state.cboFam=fam.value;renderCombo(p)};
 
   var righe=COMBO.filter(function(c){return c.gruppo===state.cboFam})
     .map(function(c){
@@ -3230,6 +3271,16 @@ function bonusNellIntervallo(){
     'il bonus decade. Le percentuali con <span class="num">~</span> sono interpolate, '+
     'non lette da un regolamento.</p>';}
 
+/* I due numeri che comandano la scheda stanno in un posto solo. Prima ogni
+   pannello aveva i suoi, e la stessa schedina rispondeva a due obiettivi
+   diversi a seconda di dove si guardava. */
+function obiettivo(){
+  var el=document.getElementById("fTarget");
+  return(el&&parseFloat(el.value))||5}
+function importo(){
+  var el=document.getElementById("fStake");
+  return(el&&parseFloat(el.value))||2}
+
 function renderGen(){
   renderQuoteScelte();
   var box=document.getElementById("genBox");if(!box)return;
@@ -3253,13 +3304,6 @@ function renderGen(){
     esc(nomeBook(state.book))+'</b> (per il bonus) \u00b7 prezzi <b>'+
     esc(RIFERIMENTI[state.rif].nome)+'</b></p>'+
     '<div class="grid g2">'+
-    '<div><label for="genQ">Quota da raggiungere</label>'+
-    '<input type="number" id="genQ" step="0.5" min="1.5" value="'+
-      (state.genQ||5)+'" inputmode="decimal"></div>'+
-    '<div><label for="genS">Importo (\u20ac)</label>'+
-    '<input type="number" id="genS" step="0.5" min="0.5" value="'+
-      (state.genStake||2)+'" inputmode="decimal"></div></div>'+
-    '<div class="grid g2" style="margin-top:9px">'+
     '<div><label for="genM">Gambe minime'+
       (state.genTocco?' <button class="chip" id="genAuto" style="padding:1px 5px;'+
         'font-size:9px;vertical-align:middle">auto</button>':
@@ -3308,13 +3352,13 @@ function renderGen(){
     state.scelte=[];lsSet("qv2.scelte",state.scelte);state.gen=null;
     renderGen();renderLista();renderSelBar()});
   document.getElementById("btnGen").addEventListener("click",function(){
-    state.genQ=parseFloat(document.getElementById("genQ").value)||5;
+    state.genQ=obiettivo();
     state.genN=parseInt(document.getElementById("genN").value,10)||6;
     state.genMin=parseInt(document.getElementById("genM").value,10)||1;
     // Un minimo sopra il massimo non e' un errore da rifiutare: e' una svista,
     // e l'intenzione e' chiara. Si allarga il massimo invece di non dare nulla.
     if(state.genMin>state.genN)state.genN=state.genMin;
-    state.genStake=parseFloat(document.getElementById("genS").value)||2;
+    state.genStake=importo();
     state.genCombo=document.getElementById("genReali").checked;
     state.genTutte=false;
     var t=Date.now();
@@ -3462,8 +3506,6 @@ function mostraGen(){
       return{nome:l.nome,match:l.partita.id,mkt:l.mkt,sel:l.sel,price:l.price,
         p:l.prob,book:l.banco||state.book,etichetta:l.partita.casa+" \u2013 "+l.partita.ospiti,
         stimato:l.stimato}});
-    var fs=document.getElementById("fStake");
-    if(fs)fs.value=stake;
     renderSchedina();document.getElementById("legsBox").scrollIntoView({block:"start"})})}
 
 /* Tagliare le gambe alza poco la probabilita': il numero che la comanda e'
@@ -3501,12 +3543,16 @@ function levaObiettivo(stake,probAttuale){
 function renderSchedina(){
   var box=document.getElementById("legsBox");
   if(!state.legs.length){
-    box.innerHTML='<div class="empty">Nessuna gamba. Apri una partita,<br>'+
-      'inserisci le quote e aggiungi una selezione.</div>';
+    box.innerHTML='<div class="empty">Nessuna gamba ancora.<br>'+
+      'Premi <b>Cerca le pi\u00f9 plausibili</b> qui sopra,<br>'+
+      'oppure apri una partita e aggiungi un esito a mano.</div>';
     ["slipVerdict","targetBox","frontTable"].forEach(function(id){
       document.getElementById(id).innerHTML=""});
     document.getElementById("frontNote").textContent="";
-    document.getElementById("copyPanel").hidden=true;return}
+    ["targetPanel","frontPanel","copyPanel"].forEach(function(id){
+      document.getElementById(id).hidden=true});return}
+  ["targetPanel","frontPanel"].forEach(function(id){
+    document.getElementById(id).hidden=false});
   box.innerHTML=state.legs.map(function(l,i){
     var ev=l.p*l.price-1;
     return'<div class="leg"><div><div class="leg-m">'+esc(l.nome)+'</div>'+
@@ -3517,7 +3563,7 @@ function renderSchedina(){
     b.addEventListener("click",function(){
       state.legs.splice(+b.getAttribute("data-rm"),1);renderSchedina()})});
 
-  var s=slipStats(state.legs),stake=parseFloat(document.getElementById("fStake").value)||2;
+  var s=slipStats(state.legs),stake=importo();
   var neg=state.legs.filter(function(l){return l.p*l.price-1<0}).length,warn="";
   if(state.legs.length>1){
     var sing=state.legs.reduce(function(a,l){return a+(stake/state.legs.length)*(l.p*l.price-1)},0);
@@ -3537,7 +3583,7 @@ function renderSchedina(){
     '</b> delle volte — una ogni <b class="num">'+fmt(1/s.prob,1)+'</b> tentativi. '+
     'Con '+fmt(stake)+' € incassi <b class="num">'+fmt(stake*s.eff)+' €</b>.</p></div>'+warn;
 
-  var target=parseFloat(document.getElementById("fTarget").value)||5;
+  var target=obiettivo();
   var r=sottoinsiemi(state.legs,target),tb=document.getElementById("targetBox");
   tb.innerHTML=r.best?'<p class="note">La combinazione più probabile che arriva a quota '+
     fmt(target)+' usa <b>'+r.best.sub.length+' gamb'+(r.best.sub.length===1?"a":"e")+
@@ -4101,6 +4147,57 @@ function showTab(n){
     sez.removeAttribute("aria-labelledby");
     d.appendChild(sez)});
   dove.appendChild(d)})();
+/* La scheda Partite si apriva su cinque riquadri di impostazioni prima ancora
+   di mostrare una partita: chi la apriva la prima volta doveva decidere
+   bookmaker, calendari e quote automatiche per arrivare all'elenco. I riquadri
+   servono ancora, ma dopo. Si spostano nel DOM invece di essere riscritti, cosi'
+   ogni funzione che li disegna continua a trovarli per id. */
+(function raccogliAvanzate(){
+  var vista=document.getElementById("listaView"),
+      stamp=document.getElementById("stamp");
+  if(!vista||!stamp)return;
+  var pannelli=vista.querySelectorAll(".avanzato");
+  if(!pannelli.length)return;
+  var d=document.createElement("details");
+  d.className="avz";
+  var sum=document.createElement("summary");
+  sum.textContent="Fonti e impostazioni";
+  d.appendChild(sum);
+  var nota=document.createElement("p");
+  nota.className="note";
+  nota.innerHTML="Il tuo bookmaker (decide il bonus), l'aggiornamento dei "+
+    "calendari, le quote automatiche e le partite fuori calendario. "+
+    "Funzionano anche chiuse: i calendari si aggiornano da soli all'apertura.";
+  d.appendChild(nota);
+  Array.prototype.forEach.call(pannelli,function(el){d.appendChild(el)});
+  stamp.parentNode.insertBefore(d,stamp)})();
+
+/* Il "perche'" in linea: un clic mostra la spiegazione lunga sotto la riga.
+   Le frasi c'erano gia' tutte, ma lette in fila facevano tre paragrafi di
+   premessa sopra l'elenco delle partite. */
+document.addEventListener("click",function(e){
+  var t=e.target;
+  if(!t||!t.classList||!t.classList.contains("perche"))return;
+  var gia=document.getElementById(t.id+"-txt");
+  if(gia){gia.parentNode.removeChild(gia);t.setAttribute("aria-expanded","false");return}
+  /* La spiegazione va messa dopo il paragrafo, non dentro: un <p> dentro un <p>
+     regge solo perche' costruito a mano, e non e' un margine su cui contare. */
+  var blocco=t.parentNode;
+  while(blocco&&blocco.tagName==="SPAN")blocco=blocco.parentNode;
+  if(!blocco||!blocco.parentNode)return;
+  var n=document.createElement("p");
+  n.className="note";n.id=t.id+"-txt";
+  n.textContent=t.getAttribute("data-perche")||"";
+  blocco.parentNode.insertBefore(n,blocco.nextSibling);
+  t.setAttribute("aria-expanded","true")});
+Array.prototype.forEach.call(document.querySelectorAll(".perche"),function(el,i){
+  el.id="perche"+i;
+  el.setAttribute("role","button");
+  el.setAttribute("tabindex","0");
+  el.setAttribute("aria-expanded","false");
+  el.addEventListener("keydown",function(e){
+    if(e.key==="Enter"||e.key===" "){e.preventDefault();el.click()}})});
+
 TABS.forEach(function(t){document.getElementById("tab-"+t)
   .addEventListener("click",function(){showTab(t)})});
 document.getElementById("btnBack").addEventListener("click",chiudi);
@@ -4121,12 +4218,15 @@ document.getElementById("btnNuova").addEventListener("click",function(){
   document.getElementById("nvCasa").value="";document.getElementById("nvOspiti").value="";
   renderFiltri();apri(id)});
 ["fTarget","fStake"].forEach(function(id){
-  document.getElementById(id).addEventListener("input",renderSchedina)});
+  document.getElementById(id).addEventListener("input",function(){
+    state.genQ=obiettivo();state.genStake=importo();renderSchedina()})});
+document.getElementById("fTarget").value=state.genQ||5;
+document.getElementById("fStake").value=state.genStake||2;
 document.getElementById("btnClear").addEventListener("click",function(){
   state.legs=[];renderSchedina()});
 document.getElementById("btnRegister").addEventListener("click",function(){
   if(!state.legs.length)return;
-  var s=slipStats(state.legs),stake=parseFloat(document.getElementById("fStake").value)||2;
+  var s=slipStats(state.legs),stake=importo();
   var g={id:"b"+Date.now()+Math.floor(Math.random()*1000),
     data:new Date().toISOString().slice(0,10),
     titolo:state.legs.length===1?state.legs[0].nome:state.legs.length+" gambe",
