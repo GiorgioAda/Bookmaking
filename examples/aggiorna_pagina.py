@@ -28,6 +28,10 @@ TESTA = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- Il telefono teneva in cache versioni vecchie, e distinguere "non corretto"
+     da "non arrivato" costava un giro di prove a ogni modifica. -->
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <style>
 :root{color-scheme:light dark;padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px)}
