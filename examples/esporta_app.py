@@ -107,9 +107,15 @@ def main(giorni: int = 10) -> None:
     # Le tabelle bonus servono in app perche' una multipla si gioca su un solo
     # bookmaker: quota, bonus e regole dipendono da quale.
     bonus = json.loads(Path("data/bonus_bookmaker.json").read_text(encoding="utf-8"))
+    # giorniMax: il regolamento Goldbet esclude dal bonus gli eventi che si
+    # giocano oltre sette giorni dalla giocata. Era nei dati e l'export lo
+    # buttava via, quindi in pagina non lo applicava nessuno: una gamba a nove
+    # giorni contava lo stesso e il bonus usciva piu' alto del vero.
     books = {k: {"gambe_minime": v["gambe_minime"],
                  "quota_minima": v["quota_minima_per_gamba"],
                  "ancoraggi": {int(a): b for a, b in v["ancoraggi"].items()},
+                 "giorniMax": v.get("eventi_entro_giorni"),
+                 "maxVincita": v.get("tetto_vincita_eur"),
                  "nota": v.get("note")}
              for k, v in bonus["bookmaker"].items()}
 
