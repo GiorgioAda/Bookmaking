@@ -320,6 +320,10 @@ body.conbarra{padding-bottom:76px}
       <div class="eyebrow">Quote automatiche</div>
       <div id="autoBox"></div>
     </div>
+    <div class="panel avanzato">
+      <div class="eyebrow">Portare tutto su un altro dispositivo</div>
+      <div id="trasfBox"></div>
+    </div>
     <div class="panel" id="occasioniPanel" hidden>
       <div class="eyebrow">Le occasioni migliori</div>
       <div id="occasioniBox"></div>
@@ -1818,7 +1822,104 @@ function ambiente(){
   if(!h)return{ok:true,dove:"locale"};
   return{ok:false,dove:h}}
 
+/* Le chiavi delle API, come ogni impostazione, stanno nel browser che le ha
+   scritte: aprire lo stesso indirizzo da un altro telefono significa trovare
+   un'app vuota. Non c'e' un server dove tenerle — l'app e' un file solo servito
+   da GitHub Pages — quindi il trasferimento lo fai tu, con un codice da
+   incollare. Il codice contiene le chiavi in chiaro: e' un trasloco, non un
+   deposito sicuro. */
+var TRASF_ESCLUSE=["qv2.quote","qv2.diag","qv2.scelte","qv2.tab","qv2.web.quando",
+  "qv2.op.cooldown","qv2.op.quote.t"];
+var TRASF_PREFISSI_ESCLUSI=["qv2.cat.","qv2.quota."];
+function chiaviTrasferibili(conRegistro){
+  var out={};
+  try{
+    for(var i=0;i<localStorage.length;i++){
+      var k=localStorage.key(i);
+      if(!k||k.indexOf("qv2.")!==0)continue;
+      if(TRASF_ESCLUSE.indexOf(k)>=0)continue;
+      if(TRASF_PREFISSI_ESCLUSI.some(function(p){return k.indexOf(p)===0}))continue;
+      if(!conRegistro&&(k==="qv2.log"||k==="qv2.extra"))continue;
+      out[k]=localStorage.getItem(k)}
+  }catch(e){}
+  return out}
+
+/* btoa non regge i caratteri non ASCII, e nel registro ce ne sono (nomi di
+   squadra, accenti): si passa per UTF-8 prima. */
+function codifica(obj){
+  var s=JSON.stringify(obj);
+  return btoa(unescape(encodeURIComponent(s)))}
+function decodifica(txt){
+  return JSON.parse(decodeURIComponent(escape(atob(txt.replace(/\s+/g,"")))))}
+
+function renderTrasferimento(){
+  var box=document.getElementById("trasfBox");if(!box)return;
+  var n=Object.keys(chiaviTrasferibili(false)).length;
+  box.innerHTML=
+    '<p class="lede" style="margin-bottom:10px">Chiavi delle API, competizioni '+
+    'scelte, bookmaker, budget e tabella bonus: <b>'+n+' impostazion'+
+    (n===1?'e</b> sta':'i</b> stanno')+' solo in questo browser. Il codice qui '+
+    'sotto le porta su un altro dispositivo.</p>'+
+    '<label style="display:flex;align-items:center;gap:8px;font-size:13px;'+
+    'color:var(--ink);margin-bottom:10px"><input type="checkbox" id="trasfLog">'+
+    'porta anche il registro delle giocate</label>'+
+    '<div class="row-btn" style="margin-top:0">'+
+    '<button class="btn" id="trasfCopia">Copia il codice</button></div>'+
+    '<div id="trasfEsito"></div>'+
+    '<div style="margin-top:12px"><label for="trasfIn">Incolla qui un codice '+
+    'preso da un altro dispositivo</label>'+
+    '<textarea id="trasfIn" rows="3" style="width:100%;font-family:var(--mono);'+
+    'font-size:11px;padding:8px;border:1px solid var(--rule-strong);'+
+    'border-radius:3px;background:var(--panel-2);color:var(--ink)"></textarea>'+
+    '<div class="row-btn"><button class="btn ghost" id="trasfCarica">Applica</button>'+
+    '</div><div id="trasfEsito2"></div></div>'+
+    '<p class="note"><b>Il codice contiene le tue chiavi API in chiaro.</b> '+
+    'Mandalo solo a te stesso e cancellalo dopo: chi ce l’ha può '+
+    'consumare i tuoi crediti.</p>';
+
+  document.getElementById("trasfCopia").addEventListener("click",function(){
+    var conLog=document.getElementById("trasfLog").checked;
+    var testo=codifica(chiaviTrasferibili(conLog));
+    var e=document.getElementById("trasfEsito");
+    function manuale(){
+      e.innerHTML='<p class="note">Copia a mano il codice qui sotto.</p>'+
+        '<textarea rows="4" readonly style="width:100%;font-family:var(--mono);'+
+        'font-size:10.5px;padding:8px;border:1px solid var(--rule-strong);'+
+        'border-radius:3px;background:var(--panel-2);color:var(--ink)">'+
+        esc(testo)+'</textarea>'}
+    if(navigator.clipboard&&navigator.clipboard.writeText)
+      navigator.clipboard.writeText(testo).then(function(){
+        e.innerHTML='<p class="note">Copiato ('+testo.length+' caratteri). '+
+          'Aprilo sull’altro dispositivo e incollalo nel campo qui sotto.</p>'},
+        manuale);
+    else manuale()});
+
+  document.getElementById("trasfCarica").addEventListener("click",function(){
+    var e=document.getElementById("trasfEsito2");
+    var txt=(document.getElementById("trasfIn").value||"").trim();
+    if(!txt){e.innerHTML='<div class="warn">Incolla prima il codice.</div>';return}
+    var dati;
+    try{dati=decodifica(txt)}catch(err){
+      e.innerHTML='<div class="warn">Codice non leggibile. Copialo tutto, '+
+        'dall’inizio alla fine.</div>';return}
+    if(!dati||typeof dati!=="object"||Array.isArray(dati)){
+      e.innerHTML='<div class="warn">Codice non leggibile.</div>';return}
+    /* Solo chiavi nostre: un codice incollato e' testo che arriva da fuori, e
+       non deve poter scrivere dove gli pare nello spazio del browser. */
+    var scritte=0,saltate=0;
+    Object.keys(dati).forEach(function(k){
+      if(k.indexOf("qv2.")!==0||typeof dati[k]!=="string"){saltate++;return}
+      try{localStorage.setItem(k,dati[k]);scritte++}catch(err){saltate++}});
+    e.innerHTML='<div class="verdict pos"><h3>'+scritte+' impostazion'+
+      (scritte===1?'e applicata':'i applicate')+'</h3><p>'+
+      (saltate?saltate+' voci ignorate perché non sono dell’app. ':'')+
+      'Ricarica la pagina per vederle in uso.</p></div>'+
+      '<div class="row-btn"><button class="btn" id="trasfRic">Ricarica adesso</button></div>';
+    var rb=document.getElementById("trasfRic");
+    if(rb)rb.addEventListener("click",function(){location.reload()})})}
+
 function renderAuto(){
+  renderTrasferimento();
   var box=document.getElementById("autoBox");if(!box)return;
   var amb=ambiente();
   if(!amb.ok){
@@ -4080,7 +4181,10 @@ function renderBonus(){
       "la vincita non arriva più."}}
 
 /* ---- registro ---- */
-function weekKey(d){var t=new Date(d),day=(t.getDay()+6)%7;
+function weekKey(d){
+  var t=new Date(d);
+  if(isNaN(t.getTime()))return "";
+  var day=(t.getDay()+6)%7;
   t.setDate(t.getDate()-day);return t.toISOString().slice(0,10)}
 /* Esito reale di una selezione dato il punteggio finale. true vinta, false
    persa, null quando non si puo' decidere: handicap che finisce esattamente in
@@ -4577,8 +4681,9 @@ function renderRegistro(){
    al generatore, che deve poter dire se l'importo chiesto sfora il tetto. */
 function spesaSettimana(){
   var wk=weekKey(new Date());
-  return state.log.filter(function(g){return weekKey(g.data)===wk})
-    .reduce(function(a,g){return a+g.stake},0)}
+  return state.log.filter(function(g){
+      var k=weekKey(g.data);return k&&k===wk})
+    .reduce(function(a,g){return a+(g.stake||0)},0)}
 function renderBudget(){
   var sp=spesaSettimana();
   document.getElementById("budgetLabel").innerHTML='settimana <b>'+fmt(sp)+'</b> / '+fmt(state.weekly,0)+' €';
