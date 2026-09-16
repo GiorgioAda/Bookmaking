@@ -165,15 +165,42 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
   font-size:11.5px;color:var(--ink-faint)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style><style>
-.fx{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--rule);
-  cursor:pointer;width:100%;background:none;border-left:0;border-right:0;border-top:0;text-align:left;color:inherit}
-.fx:last-child{border-bottom:0}
+/* Ogni partita occupava quattro righe: data su due righe a sinistra, nome,
+   e sotto una frase lunga con le quote scritte per esteso. Settanta partite
+   facevano novemila pixel di pagina, cioe' scorrere a lungo per arrivare al
+   sabato pomeriggio. Adesso la data sta una volta sola in testa al giorno, le
+   quote stanno in una colonna a destra invece che in una frase, e ogni partita
+   sta in due righe strette. */
+.fx{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:8px;
+  align-items:center;padding:6px 0;
+  cursor:pointer;width:100%;background:none;border:0;text-align:left;color:inherit}
 .fx:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-.fx-when{font-family:var(--mono);font-size:11px;color:var(--ink-faint);min-width:58px;line-height:1.3}
-.fx-t{flex:1;min-width:0}
-.fx-n{font-size:13.5px;font-weight:500;line-height:1.3;overflow-wrap:anywhere}
-.fx-p{font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-top:2px}
-.fx-go{font-family:var(--mono);font-size:14px;color:var(--ink-faint)}
+.fx-when{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);
+  font-variant-numeric:tabular-nums}
+.fx-t{min-width:0}
+.fx-n{font-size:13px;font-weight:500;line-height:1.25;overflow-wrap:anywhere;
+  display:block}
+.fx-p{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);
+  display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fx-p .ign{color:var(--neg)}
+/* Le tre quote in colonna: allineate fra righe diverse si leggono a colpo
+   d'occhio, in mezzo a una frase no. */
+.fx-o{display:flex;gap:4px;font-family:var(--mono);
+  font-variant-numeric:tabular-nums}
+.fx-o b{min-width:31px;text-align:right;font-size:11.5px;font-weight:600;
+  color:var(--accent)}
+.fx-o.mod b{color:var(--ink-faint);font-weight:500}
+.fx-o.vuota{color:var(--ink-faint);font-size:11px}
+/* Intestazione del giorno: la data che prima si ripeteva su ogni riga. */
+.fx-day{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:8px;
+  font-family:var(--disp);font-size:10px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-faint);background:var(--panel-2);
+  margin:0 -14px;padding:5px 14px;border-top:1px solid var(--rule);
+  border-bottom:1px solid var(--rule)}
+.fx-day:first-child{margin-top:-14px;border-top:0}
+.fx-day .leg{display:flex;gap:4px;padding:0;border:0;font-family:var(--mono);
+  letter-spacing:0;text-transform:none}
+.fx-day .leg span{min-width:31px;text-align:right}
 .filters{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
 .chip{font-family:var(--disp);font-size:10.5px;font-weight:600;letter-spacing:.05em;
   text-transform:uppercase;padding:5px 9px;border-radius:2px;background:var(--panel);
@@ -199,12 +226,38 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
 .back{font-family:var(--disp);font-size:11.5px;font-weight:600;color:var(--ink-soft);
   background:none;border:0;padding:0 0 10px;cursor:pointer;letter-spacing:.03em}
 .back:focus-visible{outline:2px solid var(--accent)}
-.fx-wrap{display:flex;align-items:stretch;gap:2px;border-bottom:1px solid var(--rule)}
-.fx-wrap:last-child{border-bottom:0}
-.fx-wrap.sel{background:var(--accent-bg)}
-.fx-wrap .fx{border-bottom:0;flex:1}
-.fx-ck{display:flex;align-items:center;padding-right:4px}
-.fx-ck input{width:20px;height:20px;accent-color:var(--accent)}
+/* Una giocata del registro: la riga si apre e mostra tutti gli esiti che
+   contiene. Prima comparivano solo quelli gia' decisi, quindi una schedina
+   appena registrata non mostrava nulla di cosa ci fosse dentro. */
+.gioc{border-bottom:1px solid var(--rule)}
+.gioc:last-of-type{border-bottom:0}
+.gioc>summary{padding:10px 0;cursor:pointer;list-style:none;
+  display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.gioc>summary::-webkit-details-marker{display:none}
+.gioc>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.gioc-apri{font-family:var(--mono);font-size:13px;color:var(--ink-faint);
+  transition:transform .15s}
+.gioc[open] .gioc-apri{transform:rotate(90deg)}
+.gioc-b{padding:0 0 12px}
+.ge{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:8px;
+  align-items:baseline;padding:6px 0;border-top:1px solid var(--rule);
+  font-size:12.5px}
+.ge-i{font-family:var(--mono);font-size:13px;line-height:1.2}
+.ge-i.si{color:var(--pos)}.ge-i.no{color:var(--neg)}
+.ge-i.rb{color:var(--warn)}.ge-i.att{color:var(--ink-faint)}
+.ge-n{font-weight:500;line-height:1.3;overflow-wrap:anywhere}
+.ge-s{font-size:11px;color:var(--ink-faint);font-family:var(--mono);
+  overflow-wrap:anywhere}
+.ge-p{font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.gioc-apri{transition:none}}
+.fx-wrap{display:flex;align-items:stretch;gap:6px;
+  border-bottom:1px solid var(--rule)}
+.fx-wrap:last-of-type{border-bottom:0}
+.fx-wrap.sel{background:var(--accent-bg);margin:0 -14px;padding:0 14px}
+.fx-wrap .fx{flex:1;min-width:0}
+.fx-ck{display:flex;align-items:center}
+.fx-ck input{width:19px;height:19px;accent-color:var(--accent)}
 .mkt-row td{padding:12px 0 5px;border-bottom:0}
 .mkt-row+tr td{border-top:1px solid var(--rule)}
 .stamp{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:14px}
@@ -289,7 +342,11 @@ body.conbarra{padding-bottom:76px}
     </div>
     <div class="warn" id="avvisoCal" hidden style="margin:0 0 14px"></div>
     <div class="filters" id="filtri"></div>
-    <div class="panel"><div id="listaBox"></div></div>
+    <div class="panel"><div id="listaBox"></div>
+      <p class="note">Le tre colonne sono <b>1</b>, <b>X</b> e <b>2</b>. In
+      <span style="color:var(--accent);font-weight:600">oro</span> la quota
+      migliore fra i bookmaker che hai; in grigio, quando le quote mancano, la
+      probabilità stimata dal modello.</p></div>
     <div class="panel avanzato">
       <div class="eyebrow">Partita fuori calendario</div>
       <p class="lede" style="margin-bottom:10px">Qualunque partita non in elenco.
@@ -534,7 +591,12 @@ body.conbarra{padding-bottom:76px}
     un profitto sbagliato proprio nel registro che serve a misurare gli errori
     sarebbe il posto peggiore dove farlo.</p>
   </div>
-  <div class="panel"><div class="eyebrow">Giocate</div><div id="logBox"></div></div>
+  <div class="panel"><div class="eyebrow">Giocate</div>
+    <p class="lede" style="margin-bottom:10px">Tocca una giocata per vedere
+    <b>tutti gli esiti che contiene</b> e come sta andando ciascuno. Si chiudono
+    da sole: basta un esito sbagliato perché la giocata sia persa, e serve
+    che siano presi tutti perché sia vinta.</p>
+    <div id="logBox"></div></div>
   <div id="storeNote"></div>
 </section>
 
@@ -2683,28 +2745,49 @@ function renderLista(){
   if(!ps.length){document.getElementById("listaBox").innerHTML=
     '<div class="empty">Nessuna partita in questa selezione.</div>';return}
   renderSelBar();
+  /* La data si stampa una volta per giorno invece che su ogni riga: e' la
+     stessa informazione ripetuta settanta volte, e occupava due righe ciascuna. */
+  var giorno="";
   document.getElementById("listaBox").innerHTML=ps.map(function(p){
-    var a=analizzaMercato(p,"1X2"),mod=modelProbs(p.casa,p.ospiti,p.div),sub,pill="";
-    var nm=mercatiConQuote(p).length;
+    var a=analizzaMercato(p,"1X2"),mod=modelProbs(p.casa,p.ospiti,p.div);
+    var nm=mercatiConQuote(p).length,quote,meta=[];
+    /* Con un campionato solo selezionato il suo nome sotto ogni riga e' la
+       stessa parola ripetuta dieci volte: la dice gia' il filtro acceso. */
+    if(state.filtro==="tutte")
+      meta.push(esc((DATI.divisioni[p.div]&&DATI.divisioni[p.div].nome)||p.div));
     if(a&&a.mercato){
-      sub='quote di '+a.nBooks+' book \u00b7 '+["1","X","2"].map(function(k){
-        return k+" "+fmt(a.best[k].price)}).join("  ");
-      pill=' <span class="pill ok">'+nm+' mercat'+(nm===1?"o":"i")+'</span>';
+      quote='<span class="fx-o">'+["1","X","2"].map(function(k){
+        return'<b>'+fmt(a.best[k].price)+'</b>'}).join("")+'</span>';
+      meta.push(a.nBooks+' book');
+      if(nm>1)meta.push(nm+' mercati');
     }else if(mod){
-      sub='modello \u00b7 1 '+pct(mod.probs["1"],0)+'  X '+pct(mod.probs["X"],0)+
-          '  2 '+pct(mod.probs["2"],0);
-      if(!mod.noti)pill=' <span class="pill no">squadra ignota</span>';
-    }else sub='nessuna stima \u2014 inserisci le quote';
+      /* Senza quote restano le probabilita' del modello, nella stessa colonna
+         ma in grigio: la posizione dice che cosa sono, il grigio dice da dove
+         vengono, e la legenda lo spiega una volta invece che riga per riga. */
+      quote='<span class="fx-o mod">'+["1","X","2"].map(function(k){
+        return'<b>'+pct(mod.probs[k],0)+'</b>'}).join("")+'</span>';
+      if(!mod.noti)meta.push('<span class="ign">squadra ignota</span>');
+    }else{
+      quote='<span class="fx-o vuota">nessuna stima</span>'}
     var d=new Date(p.quando);
-    var when=d.toLocaleDateString("it-IT",{weekday:"short",day:"numeric",month:"short"})+
-      "<br>"+d.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});
+    var g=d.toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long"});
+    var testa="";
+    if(g!==giorno){
+      /* La legenda 1 X 2 serve una volta, in testa: ripeterla su ogni giorno
+         sarebbe di nuovo la stessa informazione dodici volte. */
+      testa='<div class="fx-day"><span>'+esc(g)+'</span>'+(giorno?'':
+        '<span class="leg"><span>1</span><span>X</span><span>2</span></span>')+
+        '</div>';
+      giorno=g}
     var sel=state.scelte.indexOf(p.id)>=0;
-    return'<div class="fx-wrap'+(sel?' sel':'')+'">'+
+    return testa+'<div class="fx-wrap'+(sel?' sel':'')+'">'+
       '<label class="fx-ck"><input type="checkbox" data-sel="'+esc(p.id)+'"'+
       (sel?' checked':'')+' aria-label="scegli partita"></label>'+
-      '<button class="fx" data-id="'+esc(p.id)+'"><span class="fx-when">'+when+
+      '<button class="fx" data-id="'+esc(p.id)+'"><span class="fx-when">'+
+      d.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})+
       '</span><span class="fx-t"><span class="fx-n">'+esc(p.casa)+' \u2013 '+esc(p.ospiti)+
-      pill+'</span><span class="fx-p">'+sub+'</span></span><span class="fx-go">\u203a</span></button></div>'
+      '</span>'+(meta.length?'<span class="fx-p">'+meta.join(' \u00b7 ')+'</span>':'')+
+      '</span>'+quote+'</button></div>'
   }).join("");
   Array.prototype.forEach.call(document.querySelectorAll("#listaBox [data-sel]"),function(ck){
     ck.addEventListener("change",function(){
@@ -4048,8 +4131,22 @@ function renderStatistiche(){
       'correggere: il margine che le stimo, o la probabilit\u00e0 stessa.</p>'}
   box.innerHTML=h}
 
+var LOG_APERTE={};
+/* "2026-09-16" e' come la data sta su disco, non come si legge. */
+function dataIt(d){
+  var t=Date.parse(d+"T12:00");
+  return isFinite(t)?new Date(t).toLocaleDateString("it-IT",
+    {day:"numeric",month:"short",year:"numeric"}):d}
 function renderRegistro(){
   renderStatistiche();
+  /* Un esito puo' essere gia' deciso da una sessione precedente senza che la
+     giocata sia stata chiusa: succede se il download si interrompe fra la
+     scrittura delle gambe e quella della giocata, o se la nota che la teneva
+     aperta e' stata risolta. Ricontrollarle qui costa nulla e toglie un modo
+     di restare aperte per sempre. */
+  var chiuseOra=0;
+  state.log.forEach(function(g){if(chiudiSePronta(g))chiuseOra++});
+  if(chiuseOra)lsSet("qv2.log",state.log);
   var open=state.log.filter(function(g){return g.esito==="aperta"});
   var closed=state.log.filter(function(g){return g.esito!=="aperta"});
   var st=closed.reduce(function(a,g){return a+g.stake},0);
@@ -4069,23 +4166,65 @@ function renderRegistro(){
   document.getElementById("logBox").innerHTML=state.log.slice().reverse().map(function(g){
     var pill=g.esito==="vinta"?'<span class="pill ok">vinta</span>':
       g.esito==="persa"?'<span class="pill no">persa</span>':'<span class="pill">aperta</span>';
-    var dett=(g.legs||[]).filter(function(l){return l.esito!=null}).map(function(l){
-      var seg=l.esito===true?'<span style="color:var(--pos)">\u2713</span>':
-        (l.esito===false?'<span style="color:var(--neg)">\u2717</span>':
-         '<span style="color:var(--ink-faint)">=</span>');
-      return seg+' '+esc(l.nome)+(l.punteggio?' <span class="num">'+
-        esc(l.punteggio)+'</span>':'')}).join('<br>');
-    return'<div class="leg"><div><div class="leg-m">'+esc(g.titolo)+' '+pill+'</div>'+
-      '<div class="leg-s">'+g.data+' · '+fmt(g.stake)+' € a quota <b class="num">'+
-      fmt(g.quota)+'</b> · EV '+sgn(g.ev)+'</div>'+
-      (dett?'<div class="leg-s" style="margin-top:4px">'+dett+'</div>':'')+
-      (g.nota?'<div class="leg-s" style="color:var(--warn)">'+esc(g.nota)+'</div>':'')+
-      '</div>'+
-      (g.esito==="aperta"?'<div style="display:flex;gap:5px">'+
-        '<button class="btn ghost sm" data-win="'+g.id+'">Vinta</button>'+
-        '<button class="btn ghost sm" data-lose="'+g.id+'">Persa</button></div>':
-        '<button class="btn ghost sm" data-del="'+g.id+'">Togli</button>')+'</div>'}).join("");
+    var legs=g.legs||[],dec=0,sbagliate=0;
+    legs.forEach(function(l){
+      if(l.esito===true)dec++;
+      else if(l.esito===false){dec++;sbagliate++}
+      else if(l.esito==="rimborsata")dec++});
+    /* Il conteggio in testa dice a che punto e' la giocata senza doverla
+       aprire: quante gambe sono arrivate, e se una e' gia' andata storta la
+       giocata e' decisa anche se le altre devono ancora giocarsi. */
+    var stato;
+    if(!legs.length)stato="";
+    else if(sbagliate)stato=sbagliate+' esit'+(sbagliate===1?'o sbagliato':'i sbagliati')+
+      ' su '+legs.length;
+    else if(dec>=legs.length)stato='tutti e '+legs.length+' presi';
+    else stato=dec+' su '+legs.length+' decis'+(dec===1?'o':'i')+
+      ' · '+(legs.length-dec)+' da giocare';
+    /* Prima comparivano solo le gambe gia' decise: una schedina appena
+       registrata non mostrava nulla di cosa ci fosse dentro, ed era proprio il
+       momento in cui serviva rileggerla. Adesso ci sono tutte, e la riga si
+       apre e si chiude. */
+    var righe=legs.map(function(l){
+      var cl,seg;
+      if(l.esito===true){cl="si";seg="✓"}
+      else if(l.esito===false){cl="no";seg="✗"}
+      else if(l.esito==="rimborsata"){cl="rb";seg="="}
+      else{cl="att";seg="·"}
+      var quando=l.quando?new Date(l.quando).toLocaleDateString("it-IT",
+        {day:"numeric",month:"short"}):"";
+      var sotto=[l.casa?esc(l.casa)+' – '+esc(l.ospiti):"",quando,
+        l.punteggio?'finita '+esc(l.punteggio):(l.esito==null?'da giocare':''),
+        l.esito==="rimborsata"?'rimborsata':""].filter(Boolean).join(' · ');
+      return'<div class="ge"><span class="ge-i '+cl+'">'+seg+'</span>'+
+        '<span><span class="ge-n">'+esc(l.nome)+'</span>'+
+        (sotto?'<br><span class="ge-s">'+sotto+'</span>':'')+'</span>'+
+        '<span class="ge-p">'+fmt(l.price)+'</span></div>'}).join("");
+    return'<details class="gioc" data-g="'+g.id+'"'+(LOG_APERTE[g.id]?" open":"")+'>'+
+      '<summary><span><span class="leg-m">'+esc(g.titolo)+' '+pill+'</span>'+
+      '<span class="leg-s" style="display:block">'+dataIt(g.data)+' · '+fmt(g.stake)+
+      ' € a quota <b class="num">'+fmt(g.quota)+'</b> · EV '+sgn(g.ev)+'</span>'+
+      (stato?'<span class="leg-s" style="display:block'+
+        (sbagliate?';color:var(--neg)':'')+'">'+stato+'</span>':'')+
+      '</span><span class="gioc-apri">›</span></summary>'+
+      '<div class="gioc-b">'+
+      (righe||'<p class="note">Questa giocata non conserva gli esiti: è '+
+        'stata registrata prima che l’app li salvasse.</p>')+
+      (g.nota?'<p class="note" style="color:var(--warn);border-color:var(--warn)">'+
+        esc(g.nota)+'</p>':'')+
+      '<div class="row-btn">'+
+      (g.esito==="aperta"?
+        '<button class="btn ghost sm" data-win="'+g.id+'">Segna vinta</button>'+
+        '<button class="btn ghost sm" data-lose="'+g.id+'">Segna persa</button>':
+        '<button class="btn ghost sm" data-del="'+g.id+'">Togli dal registro</button>')+
+      '</div></div></details>'}).join("");
   var lb=document.getElementById("logBox");
+  /* Quali giocate erano aperte va ricordato: il registro si ridisegna a ogni
+     risultato che arriva, e senza memoria si richiuderebbe sotto le mani. */
+  Array.prototype.forEach.call(lb.querySelectorAll(".gioc"),function(d){
+    d.addEventListener("toggle",function(){
+      if(d.open)LOG_APERTE[d.getAttribute("data-g")]=1;
+      else delete LOG_APERTE[d.getAttribute("data-g")]})});
   Array.prototype.forEach.call(lb.querySelectorAll("[data-win]"),function(b){
     b.addEventListener("click",function(){settle(b.getAttribute("data-win"),"vinta")})});
   Array.prototype.forEach.call(lb.querySelectorAll("[data-lose]"),function(b){
