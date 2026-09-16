@@ -226,6 +226,31 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
 .back{font-family:var(--disp);font-size:11.5px;font-weight:600;color:var(--ink-soft);
   background:none;border:0;padding:0 0 10px;cursor:pointer;letter-spacing:.03em}
 .back:focus-visible{outline:2px solid var(--accent)}
+/* Una giocata del registro: la riga si apre e mostra tutti gli esiti che
+   contiene. Prima comparivano solo quelli gia' decisi, quindi una schedina
+   appena registrata non mostrava nulla di cosa ci fosse dentro. */
+.gioc{border-bottom:1px solid var(--rule)}
+.gioc:last-of-type{border-bottom:0}
+.gioc>summary{padding:10px 0;cursor:pointer;list-style:none;
+  display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.gioc>summary::-webkit-details-marker{display:none}
+.gioc>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.gioc-apri{font-family:var(--mono);font-size:13px;color:var(--ink-faint);
+  transition:transform .15s}
+.gioc[open] .gioc-apri{transform:rotate(90deg)}
+.gioc-b{padding:0 0 12px}
+.ge{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:8px;
+  align-items:baseline;padding:6px 0;border-top:1px solid var(--rule);
+  font-size:12.5px}
+.ge-i{font-family:var(--mono);font-size:13px;line-height:1.2}
+.ge-i.si{color:var(--pos)}.ge-i.no{color:var(--neg)}
+.ge-i.rb{color:var(--warn)}.ge-i.att{color:var(--ink-faint)}
+.ge-n{font-weight:500;line-height:1.3;overflow-wrap:anywhere}
+.ge-s{font-size:11px;color:var(--ink-faint);font-family:var(--mono);
+  overflow-wrap:anywhere}
+.ge-p{font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.gioc-apri{transition:none}}
 .fx-wrap{display:flex;align-items:stretch;gap:6px;
   border-bottom:1px solid var(--rule)}
 .fx-wrap:last-of-type{border-bottom:0}
@@ -566,7 +591,12 @@ body.conbarra{padding-bottom:76px}
     un profitto sbagliato proprio nel registro che serve a misurare gli errori
     sarebbe il posto peggiore dove farlo.</p>
   </div>
-  <div class="panel"><div class="eyebrow">Giocate</div><div id="logBox"></div></div>
+  <div class="panel"><div class="eyebrow">Giocate</div>
+    <p class="lede" style="margin-bottom:10px">Tocca una giocata per vedere
+    <b>tutti gli esiti che contiene</b> e come sta andando ciascuno. Si chiudono
+    da sole: basta un esito sbagliato perché la giocata sia persa, e serve
+    che siano presi tutti perché sia vinta.</p>
+    <div id="logBox"></div></div>
   <div id="storeNote"></div>
 </section>
 
@@ -4101,8 +4131,22 @@ function renderStatistiche(){
       'correggere: il margine che le stimo, o la probabilit\u00e0 stessa.</p>'}
   box.innerHTML=h}
 
+var LOG_APERTE={};
+/* "2026-09-16" e' come la data sta su disco, non come si legge. */
+function dataIt(d){
+  var t=Date.parse(d+"T12:00");
+  return isFinite(t)?new Date(t).toLocaleDateString("it-IT",
+    {day:"numeric",month:"short",year:"numeric"}):d}
 function renderRegistro(){
   renderStatistiche();
+  /* Un esito puo' essere gia' deciso da una sessione precedente senza che la
+     giocata sia stata chiusa: succede se il download si interrompe fra la
+     scrittura delle gambe e quella della giocata, o se la nota che la teneva
+     aperta e' stata risolta. Ricontrollarle qui costa nulla e toglie un modo
+     di restare aperte per sempre. */
+  var chiuseOra=0;
+  state.log.forEach(function(g){if(chiudiSePronta(g))chiuseOra++});
+  if(chiuseOra)lsSet("qv2.log",state.log);
   var open=state.log.filter(function(g){return g.esito==="aperta"});
   var closed=state.log.filter(function(g){return g.esito!=="aperta"});
   var st=closed.reduce(function(a,g){return a+g.stake},0);
@@ -4122,23 +4166,65 @@ function renderRegistro(){
   document.getElementById("logBox").innerHTML=state.log.slice().reverse().map(function(g){
     var pill=g.esito==="vinta"?'<span class="pill ok">vinta</span>':
       g.esito==="persa"?'<span class="pill no">persa</span>':'<span class="pill">aperta</span>';
-    var dett=(g.legs||[]).filter(function(l){return l.esito!=null}).map(function(l){
-      var seg=l.esito===true?'<span style="color:var(--pos)">\u2713</span>':
-        (l.esito===false?'<span style="color:var(--neg)">\u2717</span>':
-         '<span style="color:var(--ink-faint)">=</span>');
-      return seg+' '+esc(l.nome)+(l.punteggio?' <span class="num">'+
-        esc(l.punteggio)+'</span>':'')}).join('<br>');
-    return'<div class="leg"><div><div class="leg-m">'+esc(g.titolo)+' '+pill+'</div>'+
-      '<div class="leg-s">'+g.data+' · '+fmt(g.stake)+' € a quota <b class="num">'+
-      fmt(g.quota)+'</b> · EV '+sgn(g.ev)+'</div>'+
-      (dett?'<div class="leg-s" style="margin-top:4px">'+dett+'</div>':'')+
-      (g.nota?'<div class="leg-s" style="color:var(--warn)">'+esc(g.nota)+'</div>':'')+
-      '</div>'+
-      (g.esito==="aperta"?'<div style="display:flex;gap:5px">'+
-        '<button class="btn ghost sm" data-win="'+g.id+'">Vinta</button>'+
-        '<button class="btn ghost sm" data-lose="'+g.id+'">Persa</button></div>':
-        '<button class="btn ghost sm" data-del="'+g.id+'">Togli</button>')+'</div>'}).join("");
+    var legs=g.legs||[],dec=0,sbagliate=0;
+    legs.forEach(function(l){
+      if(l.esito===true)dec++;
+      else if(l.esito===false){dec++;sbagliate++}
+      else if(l.esito==="rimborsata")dec++});
+    /* Il conteggio in testa dice a che punto e' la giocata senza doverla
+       aprire: quante gambe sono arrivate, e se una e' gia' andata storta la
+       giocata e' decisa anche se le altre devono ancora giocarsi. */
+    var stato;
+    if(!legs.length)stato="";
+    else if(sbagliate)stato=sbagliate+' esit'+(sbagliate===1?'o sbagliato':'i sbagliati')+
+      ' su '+legs.length;
+    else if(dec>=legs.length)stato='tutti e '+legs.length+' presi';
+    else stato=dec+' su '+legs.length+' decis'+(dec===1?'o':'i')+
+      ' · '+(legs.length-dec)+' da giocare';
+    /* Prima comparivano solo le gambe gia' decise: una schedina appena
+       registrata non mostrava nulla di cosa ci fosse dentro, ed era proprio il
+       momento in cui serviva rileggerla. Adesso ci sono tutte, e la riga si
+       apre e si chiude. */
+    var righe=legs.map(function(l){
+      var cl,seg;
+      if(l.esito===true){cl="si";seg="✓"}
+      else if(l.esito===false){cl="no";seg="✗"}
+      else if(l.esito==="rimborsata"){cl="rb";seg="="}
+      else{cl="att";seg="·"}
+      var quando=l.quando?new Date(l.quando).toLocaleDateString("it-IT",
+        {day:"numeric",month:"short"}):"";
+      var sotto=[l.casa?esc(l.casa)+' – '+esc(l.ospiti):"",quando,
+        l.punteggio?'finita '+esc(l.punteggio):(l.esito==null?'da giocare':''),
+        l.esito==="rimborsata"?'rimborsata':""].filter(Boolean).join(' · ');
+      return'<div class="ge"><span class="ge-i '+cl+'">'+seg+'</span>'+
+        '<span><span class="ge-n">'+esc(l.nome)+'</span>'+
+        (sotto?'<br><span class="ge-s">'+sotto+'</span>':'')+'</span>'+
+        '<span class="ge-p">'+fmt(l.price)+'</span></div>'}).join("");
+    return'<details class="gioc" data-g="'+g.id+'"'+(LOG_APERTE[g.id]?" open":"")+'>'+
+      '<summary><span><span class="leg-m">'+esc(g.titolo)+' '+pill+'</span>'+
+      '<span class="leg-s" style="display:block">'+dataIt(g.data)+' · '+fmt(g.stake)+
+      ' € a quota <b class="num">'+fmt(g.quota)+'</b> · EV '+sgn(g.ev)+'</span>'+
+      (stato?'<span class="leg-s" style="display:block'+
+        (sbagliate?';color:var(--neg)':'')+'">'+stato+'</span>':'')+
+      '</span><span class="gioc-apri">›</span></summary>'+
+      '<div class="gioc-b">'+
+      (righe||'<p class="note">Questa giocata non conserva gli esiti: è '+
+        'stata registrata prima che l’app li salvasse.</p>')+
+      (g.nota?'<p class="note" style="color:var(--warn);border-color:var(--warn)">'+
+        esc(g.nota)+'</p>':'')+
+      '<div class="row-btn">'+
+      (g.esito==="aperta"?
+        '<button class="btn ghost sm" data-win="'+g.id+'">Segna vinta</button>'+
+        '<button class="btn ghost sm" data-lose="'+g.id+'">Segna persa</button>':
+        '<button class="btn ghost sm" data-del="'+g.id+'">Togli dal registro</button>')+
+      '</div></div></details>'}).join("");
   var lb=document.getElementById("logBox");
+  /* Quali giocate erano aperte va ricordato: il registro si ridisegna a ogni
+     risultato che arriva, e senza memoria si richiuderebbe sotto le mani. */
+  Array.prototype.forEach.call(lb.querySelectorAll(".gioc"),function(d){
+    d.addEventListener("toggle",function(){
+      if(d.open)LOG_APERTE[d.getAttribute("data-g")]=1;
+      else delete LOG_APERTE[d.getAttribute("data-g")]})});
   Array.prototype.forEach.call(lb.querySelectorAll("[data-win]"),function(b){
     b.addEventListener("click",function(){settle(b.getAttribute("data-win"),"vinta")})});
   Array.prototype.forEach.call(lb.querySelectorAll("[data-lose]"),function(b){
