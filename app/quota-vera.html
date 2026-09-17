@@ -312,9 +312,9 @@ body.conbarra{padding-bottom:76px}
 <section id="p-partite" role="tabpanel" aria-labelledby="tab-partite">
   <div id="listaView">
     <div id="ambienteBanner"></div>
-    <p class="lede"><b>Spunta le partite</b> che ti interessano: in fondo allo
-    schermo compare il pulsante per costruire la schedina. Tocca una partita per
-    vederne tutti gli esiti.</p>
+    <p class="lede"><b>Scegli i campionati</b>, poi spunta le partite che ti
+    interessano: in fondo allo schermo compare il pulsante per costruire la
+    schedina. Tocca una partita per vederne tutti gli esiti.</p>
     <div class="panel avanzato">
       <div class="eyebrow">Il tuo bookmaker</div>
       <p class="lede" style="margin-bottom:10px">Decide il <b>bonus multipla</b>.
@@ -3192,14 +3192,14 @@ function renderFiltri(){
   if(nn)nn.addEventListener("click",function(){setVisibili([])})}
 
 function renderLista(){
-  var sel=visibili(),box0=document.getElementById("listaBox");
+  var visti=visibili(),box0=document.getElementById("listaBox");
   var pan=document.getElementById("listaPanel");
   /* Senza scelta non c'e' elenco: e' il punto del cambiamento. Nascondere il
      riquadro intero, e non solo svuotarlo, evita di lasciare in pagina una
      cornice vuota che sembra un guasto. */
-  if(!sel.length){if(pan)pan.hidden=true;box0.innerHTML="";return}
+  if(!visti.length){if(pan)pan.hidden=true;box0.innerHTML="";return}
   if(pan)pan.hidden=false;
-  var ps=tutteLePartite().filter(function(p){return sel.indexOf(p.div)>=0});
+  var ps=tutteLePartite().filter(function(p){return visti.indexOf(p.div)>=0});
   ps.sort(function(a,b){return a.quando<b.quando?-1:1});
   if(!ps.length){box0.innerHTML=
     '<div class="empty">Le competizioni scelte non hanno partite in elenco.<br>'+
@@ -3213,7 +3213,7 @@ function renderLista(){
     var nm=mercatiConQuote(p).length,quote,meta=[];
     /* Con un campionato solo selezionato il suo nome sotto ogni riga e' la
        stessa parola ripetuta dieci volte: la dice gia' il filtro acceso. */
-    if(sel.length>1)
+    if(visti.length>1)
       meta.push(esc((DATI.divisioni[p.div]&&DATI.divisioni[p.div].nome)||p.div));
     if(a&&a.mercato){
       quote='<span class="fx-o">'+["1","X","2"].map(function(k){
