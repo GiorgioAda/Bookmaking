@@ -194,6 +194,24 @@ footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--rule);
   color:var(--accent)}
 .fx-o.mod b{color:var(--ink-faint);font-weight:500}
 .fx-o.vuota{color:var(--ink-faint);font-size:11px}
+/* I campionati in griglia invece che in una riga di scorciatoie: ci stanno
+   tutti, si legge quante partite porta ciascuno, e quelli a zero restano in
+   vista a dire che li' non c'e' niente. */
+.comp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  gap:6px;margin-bottom:12px}
+.comp{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:9px 10px;border-radius:3px;background:var(--panel-2);
+  border:1px solid var(--rule-strong);color:var(--ink);cursor:pointer;
+  text-align:left;font-family:var(--sans);font-size:12.5px;min-width:0}
+.comp-n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comp-c{font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);
+  font-variant-numeric:tabular-nums;flex:0 0 auto}
+.comp[aria-pressed="true"]{background:var(--ink);color:var(--panel);
+  border-color:var(--ink);font-weight:500}
+.comp[aria-pressed="true"] .comp-c{color:var(--panel);opacity:.75}
+.comp.vuota{opacity:.45}
+.comp:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
 /* Intestazione del giorno: la data che prima si ripeteva su ogni riga. */
 .fx-day{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:8px;
   font-family:var(--disp);font-size:10px;font-weight:600;letter-spacing:.09em;
@@ -340,7 +358,11 @@ body.conbarra{padding-bottom:76px}
       <div id="autoBox"></div>
     </div>
     <div class="panel avanzato">
-      <div class="eyebrow">Portare tutto su un altro dispositivo</div>
+      <div class="eyebrow">Archivio: lo storico che ti segue</div>
+      <div id="archBox"></div>
+    </div>
+    <div class="panel avanzato">
+      <div class="eyebrow">Portare tutto su un altro dispositivo, senza archivio</div>
       <div id="trasfBox"></div>
     </div>
     <div class="panel" id="occasioniPanel" hidden>
@@ -348,8 +370,8 @@ body.conbarra{padding-bottom:76px}
       <div id="occasioniBox"></div>
     </div>
     <div class="warn" id="avvisoCal" hidden style="margin:0 0 14px"></div>
-    <div class="filters" id="filtri"></div>
-    <div class="panel"><div id="listaBox"></div>
+    <div class="panel" id="filtri"></div>
+    <div class="panel" id="listaPanel" hidden><div id="listaBox"></div>
       <p class="note">Le tre colonne sono <b>1</b>, <b>X</b> e <b>2</b>. In
       <span style="color:var(--accent);font-weight:600">oro</span> la quota
       migliore fra i bookmaker che hai; in grigio, quando le quote mancano, la
@@ -1937,8 +1959,305 @@ function renderTrasferimento(){
     var rb=document.getElementById("trasfRic");
     if(rb)rb.addEventListener("click",function(){location.reload()})})}
 
+/* ---- archivio su gist ----
+   L'app e' un file solo servito da GitHub Pages: non ha un server dove tenere
+   niente, e localStorage vive dentro un browser solo. Cambiare telefono
+   significava ricominciare da zero.
+
+   Una gist privata fa da archivio: sta sul tuo conto GitHub, la apri e la leggi
+   anche tu dal browser, e ogni salvataggio diventa una revisione — che e'
+   esattamente lo "storico di tutto quello che accade" senza doverlo costruire.
+   Il prezzo e' un token: un token classico con la sola spunta "gist" non puo'
+   toccare i repository, quindi se lo perdi il danno si ferma alle gist. */
+var GIST_TOK="qv2.gist.token",GIST_ID="qv2.gist.id",GIST_KEYS="qv2.gist.chiavi";
+var GIST_DESC="QuotaVera — archivio";
+var STORE={},gistTimer=null,gistStato="",archEsito="";
+
+function gistToken(){return (lsGet(GIST_TOK,"")||"").trim()}
+function gistFile(c){return "quotavera-"+c+".json"}
+
+function gistApi(metodo,percorso,corpo){
+  return fetch("https://api.github.com"+percorso,{
+    method:metodo,
+    headers:{"Authorization":"Bearer "+gistToken(),
+      "Accept":"application/vnd.github+json",
+      "X-GitHub-Api-Version":"2022-11-28"},
+    body:corpo?JSON.stringify(corpo):undefined})
+  .then(function(r){
+    if(r.status===401)throw new Error("token rifiutato: ricontrollalo");
+    if(r.status===403)throw new Error("GitHub ha rifiutato (403): il token ha la spunta “gist”?");
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    return r.json()})}
+
+/* Le scritture non partono a ogni tasto: si accumulano e partono insieme.
+   L'API delle gist ha un limite di richieste, e una giocata registrata tocca
+   piu' documenti in un colpo solo. */
+function gistSalva(){
+  if(!gistToken())return;
+  if(gistTimer)clearTimeout(gistTimer);
+  gistTimer=setTimeout(function(){
+    gistTimer=null;
+    var files={};
+    Object.keys(STORE).forEach(function(c){
+      files[gistFile(c)]={content:JSON.stringify(STORE[c],null,1)}});
+    if(!Object.keys(files).length)return;
+    var id=lsGet(GIST_ID,"");
+    var p=id?gistApi("PATCH","/gists/"+id,{files:files}):
+      gistApi("POST","/gists",{description:GIST_DESC,public:false,files:files});
+    p.then(function(g){
+      if(g&&g.id)lsSet(GIST_ID,g.id);
+      gistStato="salvato "+new Date().toLocaleTimeString("it-IT",
+        {hour:"2-digit",minute:"2-digit"});
+      renderArchivio()})
+     .catch(function(e){gistStato="errore: "+e.message;renderArchivio()})},2500)}
+
+/* L'adattatore: le stesse tre operazioni che l'app usa gia'. */
+function gistDb(){
+  return{
+    doc:function(percorso){
+      var parti=percorso.split("/"),c=parti[0],id=parti.slice(1).join("/");
+      return{
+        set:function(v){
+          if(!STORE[c])STORE[c]={};
+          STORE[c][id]=v;archivioSalva();return Promise.resolve()},
+        delete:function(){
+          if(STORE[c])delete STORE[c][id];
+          archivioSalva();return Promise.resolve()}}},
+    collection:function(c){
+      return{get:function(){
+        var o=STORE[c]||{};
+        return Promise.resolve(Object.keys(o).map(function(k){return o[k]}))}}}}}
+
+/* All'apertura: scarica l'archivio e lo fonde con quello che c'e' nel browser.
+   Le giocate si uniscono per id — una giocata registrata altrove non deve
+   sparire perche' questo telefono non la conosceva — mentre impostazioni,
+   regole e chiavi vengono dall'archivio, che e' la copia condivisa. */
+function gistCarica(){
+  var tok=gistToken();
+  if(!tok)return Promise.resolve(false);
+  gistStato="carico…";renderArchivio();
+  var id=lsGet(GIST_ID,"");
+  var trova=id?Promise.resolve({id:id}):
+    gistApi("GET","/gists?per_page=100").then(function(gs){
+      var mia=(gs||[]).filter(function(g){return g.description===GIST_DESC})[0];
+      if(mia)lsSet(GIST_ID,mia.id);
+      return mia||null});
+  return trova.then(function(g){
+    if(!g)  {gistStato="nessun archivio ancora: si crea al primo salvataggio";
+             renderArchivio();return false}
+    return gistApi("GET","/gists/"+g.id).then(function(full){
+      var files=full.files||{};
+      Object.keys(files).forEach(function(nome){
+        var m=nome.match(/^quotavera-(.+)\.json$/);
+        if(!m)return;
+        try{STORE[m[1]]=JSON.parse(files[nome].content)||{}}catch(e){}});
+      applicaArchivio();
+      gistStato="caricato ("+(full.history?full.history.length:1)+" revisioni)";
+      renderArchivio();return true})})
+  .catch(function(e){gistStato="errore: "+e.message;renderArchivio();return false})}
+
+function applicaArchivio(){
+  var cambiato=false;
+  var gio=STORE.giocate||{};
+  var noti={};state.log.forEach(function(g){noti[g.id]=1});
+  var nuovi=Object.keys(gio).map(function(k){return gio[k]})
+    .filter(function(g){return g&&g.id&&!noti[g.id]});
+  if(nuovi.length){
+    state.log=state.log.concat(nuovi);
+    state.log.sort(function(a,b){return a.id<b.id?-1:1});
+    lsSet("qv2.log",state.log);cambiato=true}
+  var imp=(STORE.impostazioni||{}).mie;
+  if(imp){lsSet("qv2.imp",imp);cambiato=true}
+  Object.keys(STORE.regole||{}).forEach(function(b){
+    lsSet("qv2.regole."+b,STORE.regole[b]);cambiato=true});
+  var q=(STORE.quote||{}).correnti;
+  if(q&&q.v){state.quote=q.v;lsSet("qv2.quote",state.quote);cambiato=true}
+  var ch=STORE.chiavi||{};
+  Object.keys(ch).forEach(function(prov){
+    if(ch[prov]){lsSet("qv2.key."+prov,ch[prov]);cambiato=true}});
+  if((STORE.chiavi||{}).comp){lsSet("qv2.comp",STORE.chiavi.comp);cambiato=true}
+  if(!cambiato)return;
+  state.log=lsGet("qv2.log",[]);
+  state.imp=lsGet("qv2.imp",state.imp);
+  renderRegistro();renderBudget();renderAuto();renderBonus();renderLista()}
+
+/* Le chiavi delle API viaggiano solo se lo chiedi: stanno in una gist privata,
+   che non e' segreta — chi ne ha l'indirizzo la legge. */
+function gistSalvaChiavi(){
+  if(!lsGet(GIST_KEYS,true)||!archivioModo())return;
+  if(!STORE.chiavi)STORE.chiavi={};
+  Object.keys(FORNITORI).forEach(function(prov){
+    var k=(lsGet("qv2.key."+prov,"")||"").trim();
+    if(k)STORE.chiavi[prov]=k});
+  var c=lsGet("qv2.comp",null);
+  if(c)STORE.chiavi.comp=c;
+  archivioSalva()}
+
+/* ---- la seconda destinazione: un indirizzo tuo ----
+   La gist e' comoda perche' non chiede account nuovi, ma lega l'archivio a
+   GitHub. Chi preferisce tenerlo altrove da' un indirizzo che risponde a GET
+   (leggi tutto) e PUT (scrivi tutto) con un JSON. Ci stanno dentro, senza
+   codice in piu': un database Firebase Realtime (l'URL che finisce in .json),
+   un oggetto su Supabase Storage, un JSONBin, o un server tuo. */
+var URL_ADDR="qv2.url.addr",URL_HDR="qv2.url.hdr";
+function urlAddr(){return (lsGet(URL_ADDR,"")||"").trim()}
+
+function urlHeaders(){
+  var h={"Content-Type":"application/json"};
+  var extra=(lsGet(URL_HDR,"")||"").trim();
+  /* Un'intestazione per riga, "Nome: valore": e' come i servizi documentano le
+     proprie chiavi, quindi si incolla invece di tradurla. */
+  extra.split(/\n+/).forEach(function(r){
+    var i=r.indexOf(":");
+    if(i>0)h[r.slice(0,i).trim()]=r.slice(i+1).trim()});
+  return h}
+
+function urlSalva(){
+  if(!urlAddr())return;
+  if(gistTimer)clearTimeout(gistTimer);
+  gistTimer=setTimeout(function(){
+    gistTimer=null;
+    fetch(urlAddr(),{method:"PUT",headers:urlHeaders(),
+      body:JSON.stringify(STORE)})
+    .then(function(r){
+      if(!r.ok)throw new Error("HTTP "+r.status);
+      gistStato="salvato "+new Date().toLocaleTimeString("it-IT",
+        {hour:"2-digit",minute:"2-digit"});renderArchivio()})
+    .catch(function(e){gistStato="errore: "+e.message;renderArchivio()})},2500)}
+
+function urlCarica(){
+  if(!urlAddr())return Promise.resolve(false);
+  gistStato="carico…";renderArchivio();
+  return fetch(urlAddr(),{headers:urlHeaders()})
+    .then(function(r){
+      if(r.status===404)return null;   // archivio non ancora creato
+      if(!r.ok)throw new Error("HTTP "+r.status);
+      return r.json()})
+    .then(function(d){
+      if(d&&typeof d==="object"&&!Array.isArray(d))STORE=d;
+      applicaArchivio();
+      gistStato=d?"caricato":"vuoto: si crea al primo salvataggio";
+      renderArchivio();return !!d})
+    .catch(function(e){gistStato="errore: "+e.message;renderArchivio();return false})}
+
+/* Quale delle due e' accesa. Non tutte e due insieme: due archivi che si
+   riscrivono a vicenda sono peggio di nessun archivio. */
+function archivioModo(){
+  if(urlAddr())return "url";
+  if(gistToken())return "gist";
+  return ""}
+function archivioSalva(){
+  if(archivioModo()==="url")urlSalva();else gistSalva()}
+function archivioCarica(){
+  return archivioModo()==="url"?urlCarica():gistCarica()}
+
+function renderArchivio(){
+  var box=document.getElementById("archBox");if(!box)return;
+  var modo=archivioModo(),id=lsGet(GIST_ID,"");
+  var n=(STORE.giocate?Object.keys(STORE.giocate).length:0);
+  box.innerHTML=
+    '<p class="lede" style="margin-bottom:10px">Senza archivio tutto resta nel '+
+    'browser che lo ha scritto: <b>cambi telefono e ricominci da zero</b>. '+
+    'Con l’archivio, registro, esiti, impostazioni e tabella bonus ti '+
+    'seguono, e ogni salvataggio resta come revisione.</p>'+
+    (modo?'<div class="verdict '+(gistStato.indexOf("errore")===0?"neg":"pos")+
+      '" style="margin-bottom:12px"><h3>Archivio attivo · '+
+      (modo==="gist"?"gist GitHub":"indirizzo tuo")+'</h3>'+
+      '<p>'+esc(gistStato||"in attesa")+'. '+n+' giocat'+(n===1?'a':'e')+
+      ' archiviat'+(n===1?'a':'e')+'.'+
+      (modo==="gist"&&id?' <a href="https://gist.github.com/'+esc(id)+
+        '" target="_blank" rel="noopener" style="color:inherit">apri la gist</a>.':'')+
+      '</p></div>':'')+
+
+    '<div class="eyebrow" style="margin-top:4px">1 · Gist privata su GitHub</div>'+
+    '<p class="note" style="margin-top:0">Non serve un account nuovo: hai già '+
+    'GitHub. Crea un token <b>classico</b> con la sola spunta <b>gist</b> '+
+    '(<a href="https://github.com/settings/tokens/new?scopes=gist&description=QuotaVera" '+
+    'target="_blank" rel="noopener">aprilo già impostato</a>) e incollalo qui. '+
+    'Con quella sola spunta il token <b>non può toccare i tuoi repository</b>.</p>'+
+    '<div style="margin-top:8px"><label for="arTok">Token GitHub (gist)</label>'+
+    '<input type="password" id="arTok" placeholder="ghp_…" autocomplete="off" '+
+    'value="'+esc(gistToken())+'"></div>'+
+
+    '<div class="eyebrow" style="margin-top:16px">2 · Un indirizzo tuo</div>'+
+    '<p class="note" style="margin-top:0">Qualunque indirizzo che risponda a '+
+    '<b>GET</b> (legge tutto) e <b>PUT</b> (scrive tutto) con un JSON: un '+
+    'database Firebase Realtime (l’URL che finisce in <span class="num">'+
+    '.json</span>), un oggetto Supabase, un JSONBin, un server tuo. Se lo usi, '+
+    'questo vince sulla gist.</p>'+
+    '<div style="margin-top:8px"><label for="arUrl">Indirizzo</label>'+
+    '<input type="text" id="arUrl" placeholder="https://…/quotavera.json" '+
+    'autocomplete="off" value="'+esc(urlAddr())+'"></div>'+
+    '<div style="margin-top:8px"><label for="arHdr">Intestazioni, una per riga '+
+    '(facoltative)</label><textarea id="arHdr" rows="2" placeholder="apikey: …" '+
+    'style="width:100%;font-family:var(--mono);font-size:12px;padding:8px;'+
+    'border:1px solid var(--rule-strong);border-radius:3px;'+
+    'background:var(--panel-2);color:var(--ink)">'+esc(lsGet(URL_HDR,""))+
+    '</textarea></div>'+
+
+    '<div class="kv" style="border:0;padding:12px 0 0"><label style="display:flex;'+
+    'align-items:center;gap:8px;margin:0;font-size:13px;color:var(--ink)">'+
+    '<input type="checkbox" id="arChiavi"'+(lsGet(GIST_KEYS,true)?" checked":"")+
+    '> archivia anche le chiavi delle API</label><span></span></div>'+
+    '<p class="note" style="margin-top:6px">Se la spunti non le reinserisci mai '+
+    'più. Ma una gist privata <b>non è segreta</b>: chi ne ha '+
+    'l’indirizzo la legge. Togli la spunta se preferisci riscriverle a mano '+
+    'su ogni dispositivo.</p>'+
+
+    '<div class="row-btn">'+
+    '<button class="btn" id="arSalvaOra">Collega e sincronizza</button>'+
+    (modo?'<button class="btn ghost" id="arStacca">Scollega</button>':'')+
+    '</div><div id="arEsito">'+archEsito+'</div>';
+
+  document.getElementById("arSalvaOra").addEventListener("click",function(){
+    lsSet(GIST_TOK,document.getElementById("arTok").value.trim());
+    lsSet(URL_ADDR,document.getElementById("arUrl").value.trim());
+    lsSet(URL_HDR,document.getElementById("arHdr").value);
+    lsSet(GIST_KEYS,document.getElementById("arChiavi").checked);
+    /* L'esito non puo' vivere nel riquadro: ogni avanzamento ridisegna il
+       pannello e lo staccherebbe dalla pagina, lasciandoti senza conferma
+       proprio mentre il collegamento riesce. */
+    if(!archivioModo()){
+      archEsito='<div class="warn">Serve un token oppure un indirizzo.</div>';
+      renderArchivio();return}
+    archEsito='<p class="note">Collego…</p>';renderArchivio();
+    db=gistDb();
+    /* Prima si legge, poi si scrive: al contrario, il primo salvataggio da un
+       telefono vuoto cancellerebbe quello che c'e' nell'archivio. */
+    archivioCarica().then(function(){
+      semina();archivioSalva();
+      archEsito='<div class="verdict pos"><h3>Collegato</h3><p>Da adesso '+
+        'registro, esiti, impostazioni e tabella bonus vengono archiviati a '+
+        'ogni modifica. Sull’altro dispositivo metti lo stesso '+
+        (archivioModo()==="gist"?"token":"indirizzo")+' e ritrovi tutto.</p></div>';
+      renderArchivio()})});
+
+  var st=document.getElementById("arStacca");
+  if(st)st.addEventListener("click",function(){
+    lsSet(GIST_TOK,"");lsSet(URL_ADDR,"");lsSet(GIST_ID,"");
+    db=null;gistStato="";
+    archEsito='<p class="note">Scollegato. I dati restano in questo browser e '+
+      'nell’archivio, ma non si parlano più.</p>';
+    renderArchivio()})}
+
+/* Al primo collegamento l'archivio e' vuoto mentre il browser e' pieno: senza
+   questo, l'archivio resterebbe vuoto fino alla prossima modifica di ognuna
+   delle cose che contiene. */
+function semina(){
+  if(!STORE.giocate)STORE.giocate={};
+  state.log.forEach(function(g){STORE.giocate[g.id]=g});
+  if(!STORE.impostazioni)STORE.impostazioni={};
+  STORE.impostazioni.mie=lsGet("qv2.imp",{});
+  if(!STORE.regole)STORE.regole={};
+  Object.keys(DATI.bookmaker||{}).forEach(function(b){
+    var r=lsGet("qv2.regole."+b,null);
+    if(r)STORE.regole[b]=r});
+  if(!STORE.quote)STORE.quote={};
+  STORE.quote.correnti={v:state.quote};
+  gistSalvaChiavi()}
+
 function renderAuto(){
-  renderTrasferimento();
+  renderArchivio();renderTrasferimento();
   var box=document.getElementById("autoBox");if(!box)return;
   var amb=ambiente();
   if(!amb.ok){
@@ -1989,7 +2308,7 @@ function renderAuto(){
     b.addEventListener("click",function(){
       state.provider=b.getAttribute("data-p");salvaImp();renderAuto()})});
   document.getElementById("apiKey").addEventListener("input",function(){
-    lsSet("qv2.key."+prov,this.value.trim())});
+    lsSet("qv2.key."+prov,this.value.trim());gistSalvaChiavi()});
   var ck=document.getElementById("apiOU");
   if(ck)ck.addEventListener("change",function(){lsSet("qv2.apiou",this.checked)});
   legaPickerBook(prov);legaPickerComp();
@@ -2573,6 +2892,7 @@ function aggiornaDaWeb(auto){
         if(fatti<divs.length)return;
         aperte.forEach(function(g){if(chiudiSePronta(g))chiuse++});
         lsSet("qv2.log",state.log);
+        if(decise)aperte.forEach(salvaGiocata);
         lsSet("qv2.web.quando",Date.now());
         salvaQuote();renderLista();renderOccasioni();renderRegistro();renderBudget();
         if(!box)return;
@@ -2835,25 +3155,74 @@ function renderAvvisoCal(){
     ': aprile da <b>Fonti e impostazioni</b>, in fondo alla pagina, e premi '+
     '<b>Aggiorna ora</b>.'}
 
+/* La scheda si apriva su settanta partite di undici campionati, e la prima
+   cosa da fare era comunque restringere. Adesso si sceglie prima: finche' non
+   scegli, l'elenco non c'e'. I campionati stanno tutti in vista, con quante
+   partite portano, invece che in una riga di scorciatoie dove quelli senza
+   partite sparivano e non si capiva se mancassero o non esistessero. */
+function visibili(){
+  var v=lsGet("qv2.visibili",null);
+  return Array.isArray(v)?v:[]}
+function setVisibili(v){lsSet("qv2.visibili",v);renderFiltri();renderLista()}
+
 function renderFiltri(){
   renderAvvisoCal();
   var divs={};tutteLePartite().forEach(function(p){divs[p.div]=(divs[p.div]||0)+1});
-  var h='<button class="chip" data-f="tutte" aria-pressed="'+(state.filtro==="tutte")+'">Tutte</button>';
-  Object.keys(divs).sort().forEach(function(d){
-    var nome=(DATI.divisioni[d]&&DATI.divisioni[d].nome)||d;
-    h+='<button class="chip" data-f="'+esc(d)+'" aria-pressed="'+(state.filtro===d)+'">'+
-       esc(nome)+' <span class="num">'+divs[d]+'</span></button>'});
+  /* Tutte le competizioni che conosciamo, non solo quelle che hanno partite
+     adesso: una a zero dice "qui non c'e' niente", che e' un'informazione;
+     una che sparisce non dice nulla. */
+  var tutte=Object.keys(SPORT_API);
+  Object.keys(COMP_UEFA).forEach(function(k){if(tutte.indexOf(k)<0)tutte.push(k)});
+  Object.keys(divs).forEach(function(d){if(tutte.indexOf(d)<0)tutte.push(d)});
+  tutte.sort(function(a,b){
+    var da=divs[a]||0,db2=divs[b]||0;
+    if((da>0)!==(db2>0))return da>0?-1:1;      // prima quelle che hanno partite
+    return nomeDiv(a)<nomeDiv(b)?-1:1});
+  var sel=visibili(),conPartite=tutte.filter(function(d){return divs[d]});
+  var quante=sel.reduce(function(a,d){return a+(divs[d]||0)},0);
+
+  var h='<div class="eyebrow">Quali campionati vuoi vedere</div>'+
+    '<p class="lede" style="margin-bottom:10px">'+
+    (sel.length?'<b class="num">'+quante+'</b> partit'+(quante===1?'a':'e')+
+      ' in <b class="num">'+sel.length+'</b> competizion'+(sel.length===1?'e':'i')+'.':
+      'Nessuna competizione scelta: <b>tocca quelle che ti interessano</b> e '+
+      'l’elenco compare qui sotto.')+'</p>'+
+    '<div class="comp-grid">'+
+    tutte.map(function(d){
+      var n=divs[d]||0,on=sel.indexOf(d)>=0;
+      return'<button class="comp'+(n?'':' vuota')+'" data-f="'+esc(d)+'" '+
+        'aria-pressed="'+on+'"'+(n?'':' title="nessuna partita in elenco"')+'>'+
+        '<span class="comp-n">'+esc(nomeDiv(d))+'</span>'+
+        '<span class="comp-c">'+(n||'—')+'</span></button>'}).join("")+
+    '</div>'+
+    '<div class="row-btn">'+
+    '<button class="btn ghost sm" id="fTutte">Tutti quelli con partite</button>'+
+    (sel.length?'<button class="btn ghost sm" id="fNessuna">Deseleziona</button>':'')+
+    '</div>';
   var box=document.getElementById("filtri");box.innerHTML=h;
   Array.prototype.forEach.call(box.querySelectorAll("[data-f]"),function(b){
-    b.addEventListener("click",function(){state.filtro=b.getAttribute("data-f");
-      renderFiltri();renderLista()})})}
+    b.addEventListener("click",function(){
+      var d=b.getAttribute("data-f"),s=visibili().slice(),i=s.indexOf(d);
+      if(i>=0)s.splice(i,1);else s.push(d);
+      setVisibili(s)})});
+  var t=document.getElementById("fTutte");
+  if(t)t.addEventListener("click",function(){setVisibili(conPartite)});
+  var nn=document.getElementById("fNessuna");
+  if(nn)nn.addEventListener("click",function(){setVisibili([])})}
 
 function renderLista(){
-  var ps=tutteLePartite().filter(function(p){
-    return state.filtro==="tutte"||p.div===state.filtro});
+  var sel=visibili(),box0=document.getElementById("listaBox");
+  var pan=document.getElementById("listaPanel");
+  /* Senza scelta non c'e' elenco: e' il punto del cambiamento. Nascondere il
+     riquadro intero, e non solo svuotarlo, evita di lasciare in pagina una
+     cornice vuota che sembra un guasto. */
+  if(!sel.length){if(pan)pan.hidden=true;box0.innerHTML="";return}
+  if(pan)pan.hidden=false;
+  var ps=tutteLePartite().filter(function(p){return sel.indexOf(p.div)>=0});
   ps.sort(function(a,b){return a.quando<b.quando?-1:1});
-  if(!ps.length){document.getElementById("listaBox").innerHTML=
-    '<div class="empty">Nessuna partita in questa selezione.</div>';return}
+  if(!ps.length){box0.innerHTML=
+    '<div class="empty">Le competizioni scelte non hanno partite in elenco.<br>'+
+    'Aggiorna i calendari da <b>Fonti e impostazioni</b>.</div>';return}
   renderSelBar();
   /* La data si stampa una volta per giorno invece che su ogni riga: e' la
      stessa informazione ripetuta settanta volte, e occupava due righe ciascuna. */
@@ -2863,7 +3232,7 @@ function renderLista(){
     var nm=mercatiConQuote(p).length,quote,meta=[];
     /* Con un campionato solo selezionato il suo nome sotto ogni riga e' la
        stessa parola ripetuta dieci volte: la dice gia' il filtro acceso. */
-    if(state.filtro==="tutte")
+    if(sel.length>1)
       meta.push(esc((DATI.divisioni[p.div]&&DATI.divisioni[p.div].nome)||p.div));
     if(a&&a.mercato){
       quote='<span class="fx-o">'+["1","X","2"].map(function(k){
@@ -4317,6 +4686,7 @@ function aggiornaRisultati(){
         if(fatti<lista.length)return;
         verificabili.forEach(function(g){if(chiudiSePronta(g))chiuse++});
         lsSet("qv2.log",state.log);
+        if(decise)verificabili.forEach(salvaGiocata);
         var h="";
         if(dubbi)h+='<div class="warn"><b>'+dubbi+' gamb'+(dubbi===1?'a \u00e8':'e sono')+
           ' in una coppa europea.</b> L\u00ec si giocano i supplementari, e il '+
@@ -4944,7 +5314,10 @@ function etichettaPeso(){
   if(TABS.indexOf(t)>=0&&t!=="partite")showTab(t);
 })();
 
-if(window.claude&&window.claude.use){
+/* Se hai gia' scelto dove tenere l'archivio, all'apertura si ricollega da
+   solo: e' il punto di avere un archivio. */
+if(archivioModo()){db=gistDb();archivioCarica()}
+else if(window.claude&&window.claude.use){
   window.claude.use("db").then(function(d){
     if(!d)return;db=d;
     document.getElementById("storeNote").innerHTML=
