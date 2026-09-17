@@ -2132,6 +2132,89 @@ function archivioSalva(){
 function archivioCarica(){
   return archivioModo()==="url"?urlCarica():gistCarica()}
 
+/* ---- il link che si configura da solo ----
+   Su un dispositivo nuovo qualcosa deve pur dire all'app chi sei: una pagina
+   statica non ha modo di riconoscerti da sola. Invece di farti ricopiare il
+   token a mano, lo mettiamo dentro un link: lo apri sul telefono nuovo e
+   l'app si collega da se'.
+
+   Il segreto sta dopo il cancelletto, e questo non e' un dettaglio: la parte
+   dopo il # il browser NON la manda al server, quindi non finisce nei log di
+   GitHub. Appena letto viene tolto dalla barra degli indirizzi, cosi' non
+   resta in bella vista ne' te lo porti dietro se condividi la pagina.
+
+   Il modo comodo di usarlo e' salvarlo fra i preferiti: Safari e Chrome
+   sincronizzano i preferiti fra i tuoi dispositivi, quindi il link — e con lui
+   l'archivio — arriva sul telefono nuovo da solo. */
+function linkConfigurazione(){
+  var d={t:gistToken(),u:urlAddr(),h:lsGet(URL_HDR,""),k:lsGet(GIST_KEYS,true)};
+  var base=location.origin+location.pathname;
+  /* Un file aperto da disco non ha un indirizzo condivisibile: li' il link non
+     servirebbe a niente, e dirlo e' meglio che darne uno rotto. */
+  if(location.protocol==="file:")return null;
+  return base+"#qv="+encodeURIComponent(codifica(d))}
+
+/* Va letto prima di tutto il resto: se arriva un link configurato, quelle
+   impostazioni valgono per questa apertura, e il collegamento parte subito. */
+function leggiLink(){
+  var h=location.hash||"";
+  if(h.indexOf("#qv=")!==0)return false;
+  var d;
+  try{d=decodifica(decodeURIComponent(h.slice(4)))}catch(e){return false}
+  if(!d||typeof d!=="object")return false;
+  if(d.t)lsSet(GIST_TOK,d.t);
+  if(d.u)lsSet(URL_ADDR,d.u);
+  if(d.h!=null)lsSet(URL_HDR,d.h);
+  if(d.k!=null)lsSet(GIST_KEYS,!!d.k);
+  /* Tolto dalla barra senza lasciare una voce in piu' nella cronologia. */
+  try{history.replaceState(null,"",location.pathname+location.search)}
+  catch(e){location.hash=""}
+  return true}
+
+/* Il blocco che ti da' il link, e i gesti per portarlo altrove senza copiarlo
+   a mano: il tasto di condivisione del telefono, oppure i preferiti che il
+   browser sincronizza da solo fra i tuoi dispositivi. */
+function bloccoLink(){
+  var l=linkConfigurazione();
+  if(!l)return'<p class="note">Il link che si configura da solo funziona '+
+    'quando l’app è aperta dal suo indirizzo web. Qui è aperta '+
+    'da un file sul dispositivo, quindi non c’è un indirizzo da '+
+    'passare.</p>';
+  return'<div class="eyebrow" style="margin-top:16px">Il link che ti segue</div>'+
+    '<p class="note" style="margin-top:0"><b>Salvalo nei preferiti.</b> Safari e '+
+    'Chrome sincronizzano i preferiti fra i tuoi dispositivi: sul telefono nuovo '+
+    'lo trovi già lì, lo apri, e l’app si collega da sola — '+
+    'niente da ricopiare. Oppure usa <b>Condividi</b> e mandalo a te stesso.</p>'+
+    '<div class="row-btn" style="margin-top:8px">'+
+    '<button class="btn" id="arLinkCopia">Copia il link</button>'+
+    (navigator.share?'<button class="btn ghost" id="arLinkCond">Condividi</button>':'')+
+    '</div><div id="arLinkEsito"></div>'+
+    '<p class="note"><b>Il link contiene il tuo token.</b> Chi ce l’ha '+
+    'entra nel tuo archivio: tienilo per te, come una password. La parte dopo '+
+    'il <span class="num">#</span> non viene mandata a nessun server, e appena '+
+    'l’app la legge la toglie dalla barra degli indirizzi.</p>'}
+
+function legaLink(){
+  var c=document.getElementById("arLinkCopia");
+  if(c)c.addEventListener("click",function(){
+    var l=linkConfigurazione(),e=document.getElementById("arLinkEsito");
+    function manuale(){
+      e.innerHTML='<p class="note">Copia a mano questo indirizzo.</p>'+
+        '<textarea rows="3" readonly style="width:100%;font-family:var(--mono);'+
+        'font-size:11px;padding:8px;border:1px solid var(--rule-strong);'+
+        'border-radius:3px;background:var(--panel-2);color:var(--ink)">'+
+        esc(l)+'</textarea>'}
+    if(navigator.clipboard&&navigator.clipboard.writeText)
+      navigator.clipboard.writeText(l).then(function(){
+        e.innerHTML='<p class="note">Copiato. Aprilo sull’altro '+
+          'dispositivo: si collega da solo.</p>'},manuale);
+    else manuale()});
+  var s=document.getElementById("arLinkCond");
+  if(s)s.addEventListener("click",function(){
+    navigator.share({title:"QuotaVera",url:linkConfigurazione()})
+      .catch(function(){})});
+}
+
 function renderArchivio(){
   var box=document.getElementById("archBox");if(!box)return;
   var modo=archivioModo(),id=lsGet(GIST_ID,"");
@@ -2148,7 +2231,7 @@ function renderArchivio(){
       ' archiviat'+(n===1?'a':'e')+'.'+
       (modo==="gist"&&id?' <a href="https://gist.github.com/'+esc(id)+
         '" target="_blank" rel="noopener" style="color:inherit">apri la gist</a>.':'')+
-      '</p></div>':'')+
+      '</p></div>'+bloccoLink():'')+
 
     '<div class="eyebrow" style="margin-top:4px">1 · Gist privata su GitHub</div>'+
     '<p class="note" style="margin-top:0">Non serve un account nuovo: hai già '+
@@ -2190,6 +2273,7 @@ function renderArchivio(){
     (modo?'<button class="btn ghost" id="arStacca">Scollega</button>':'')+
     '</div><div id="arEsito">'+archEsito+'</div>';
 
+  legaLink();
   document.getElementById("arSalvaOra").addEventListener("click",function(){
     lsSet(GIST_TOK,document.getElementById("arTok").value.trim());
     lsSet(URL_ADDR,document.getElementById("arUrl").value.trim());
@@ -5295,9 +5379,21 @@ function etichettaPeso(){
   if(TABS.indexOf(t)>=0&&t!=="partite")showTab(t);
 })();
 
+/* Un link configurato porta con se' le impostazioni: vanno lette prima di
+   chiedersi se un archivio c'e', perche' e' il link stesso a portarlo. */
+var daLink=leggiLink();
 /* Se hai gia' scelto dove tenere l'archivio, all'apertura si ricollega da
    solo: e' il punto di avere un archivio. */
-if(archivioModo()){db=gistDb();archivioCarica()}
+if(archivioModo()){
+  db=gistDb();
+  archivioCarica().then(function(){
+    if(!daLink)return;
+    /* Arrivando da un link il pannello e' la cosa che vuoi vedere: dice se il
+       collegamento ha funzionato invece di lasciartelo indovinare. */
+    archEsito='<div class="verdict pos"><h3>Collegato da link</h3><p>Questo '+
+      'dispositivo ha preso le impostazioni dal link e si è collegato '+
+      'all’archivio. Non devi ricopiare niente.</p></div>';
+    renderArchivio()})}
 else if(window.claude&&window.claude.use){
   window.claude.use("db").then(function(d){
     if(!d)return;db=d;
