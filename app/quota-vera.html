@@ -3993,33 +3993,50 @@ function renderVicine(p){
   // sempre il bordo inferiore: si chiede 3.00 e si ottiene 2.10, cioe' proprio
   // quello che non si voleva. Si parte dall'obiettivo in su, e fra quelli vince
   // il piu' probabile, che e' quello che spreca meno quota oltre il necessario.
-  var dentro=cand.filter(function(c){
+  /* Con "solo quote vere" gli esiti senza prezzo esposto non si mostrano:
+     offrirli e poi avvertire in fondo alla tabella e' un modo per far entrare
+     in schedina un numero che nessun banco paga. Ma restano una quindicina di
+     esiti per partita invece di trecento, e la fascia stretta che prima
+     pescava sempre qualcosa adesso esce vuota quasi sempre: la ricerca
+     sembrava rotta. Una fascia vuota non e' una risposta — sono gli esiti che
+     ci sono, detti per quello che sono. */
+  var veri=state.soloReali?cand.filter(function(c){return !c.stimato}):cand;
+  var nascosti=cand.length-veri.length;
+  var dentro=veri.filter(function(c){
     return c.price>=target-1e-9&&c.price<=target*(1+tol)});
-  /* Con "solo quote vere" gli esiti senza prezzo esposto non si mostrano
-     nemmeno: offrirli e poi avvertire in fondo alla tabella e' un modo per far
-     entrare in schedina un numero che nessun banco paga. Quanti ne restano
-     fuori pero' va detto, altrimenti sembra che la partita non abbia esiti. */
-  var nascosti=0;
-  if(state.soloReali){
-    nascosti=dentro.filter(function(c){return c.stimato}).length;
-    dentro=dentro.filter(function(c){return !c.stimato})}
+  var ripiego="";
+  if(!dentro.length){
+    var sopra=veri.filter(function(c){return c.price>=target-1e-9})
+      .sort(function(x,y){return x.price-y.price});
+    if(sopra.length){dentro=sopra.slice(0,8);ripiego="sopra"}
+    else{
+      var sotto=veri.filter(function(c){return c.price<target})
+        .sort(function(x,y){return y.price-x.price});
+      if(sotto.length){dentro=sotto.slice(0,8);ripiego="sotto"}}}
   function nota(){
     return nascosti?'<p class="note"><b>'+nascosti+' esit'+(nascosti===1?'o':'i')+
-      '</b> in questa fascia '+(nascosti===1?'\u00e8 nascosto':'sono nascosti')+
-      ': di quell'+(nascosti===1?'o':'i')+' nessun banco ci ha dato un prezzo, '+
-      'quindi la quota sarebbe una stima nostra. Scarica le quote dalla scheda '+
-      '<b>Partite</b>, oppure scrivi tu il prezzo che leggi sul conto qui sotto '+
-      'nelle quote del mercato.</p>':''}
+      '</b> di questa partita '+(nascosti===1?'\u00e8 nascosto':'sono nascosti')+
+      ': nessun banco ci ha dato un prezzo, quindi la quota sarebbe una stima '+
+      'nostra. Sono quasi tutti combo. Per averne di veri: <b>Partite \u2192 '+
+      'Quote automatiche</b>, oppure scrivi tu il prezzo che leggi sul conto '+
+      'qui sotto nelle quote del mercato.</p>':''}
   if(!dentro.length){
-    box.innerHTML='<p class="note">Nessun esito di questa partita paga almeno '+
-      fmt(target)+' restando entro il margine scelto'+
-      (nascosti?' fra quelli di cui abbiamo il prezzo vero':'')+
-      '. Allarga il margine, abbassa '+
-      'l’obiettivo, oppure servirà più di una partita in schedina.</p>'+
-      nota();return}
-  dentro.sort(function(x,y){return y.prob-x.prob});
-  var t='<p class="lede" style="margin:10px 0">'+dentro.length+' esiti pagano almeno '+
-    fmt(target)+', dal piu’ probabile:</p><div class="tbl-scroll"><table><thead><tr>'+
+    box.innerHTML='<p class="note">Di questa partita non abbiamo nessun prezzo '+
+      'vero'+(nascosti?' \u2014 solo '+nascosti+' quote stimate da noi':'')+
+      '. Scarica le quote dalla scheda <b>Partite</b>, oppure aprile le quote '+
+      'del mercato qui sotto e scrivi quelle che leggi sul conto.</p>'+nota();
+    return}
+  if(!ripiego)dentro.sort(function(x,y){return y.prob-x.prob});
+  var t='<p class="lede" style="margin:10px 0">'+
+    (ripiego==="sopra"?
+      '<b>Nessun esito paga fra '+fmt(target)+' e '+fmt(target*(1+tol))+
+      '.</b> Questi sono i pi\u00f9 vicini sopra l\u2019obiettivo, dal meno caro:':
+     ripiego==="sotto"?
+      '<b>Nessun esito arriva a '+fmt(target)+'.</b> Questi sono i pi\u00f9 alti '+
+      'che questa partita paga \u2014 per l\u2019obiettivo servir\u00e0 pi\u00f9 '+
+      'di una partita in schedina:':
+      dentro.length+' esiti pagano almeno '+fmt(target)+', dal pi\u00f9 probabile:')+
+    '</p><div class="tbl-scroll"><table><thead><tr>'+
     '<th>Esito</th><th>Quota</th><th>Probabilità</th><th></th></tr></thead><tbody>';
   dentro.slice(0,10).forEach(function(c,i){
     t+='<tr'+(i===0?' class="hl"':'')+'><td style="font-size:12px">'+esc(c.nome)+
@@ -4533,11 +4550,31 @@ function mostraGen(){
      quanto spesso arrivano, quindi e' quello il criterio. */
   var ks=Object.keys(res).map(Number);
   ks.sort(function(a,b){return res[b].prob-res[a].prob});
+  /* Righe che perdono su tutto. Ogni riga e' la combinazione piu' probabile di
+     quella lunghezza che arriva all'obiettivo, e capita spesso che allungando
+     si finisca per pagare MENO e vincere MENO spesso: con piu' gambe il bonus
+     abbassa quello che le gambe devono produrre, la ricerca sceglie selezioni
+     piu' corte e sfora meno il bersaglio. Su una schedina vera: 4 gambe
+     pagavano 10,95 EUR al 19,8%, sei ne pagavano 10,21 al 19,0%. La tabella le
+     metteva una accanto all'altra come se fossero due strade diverse, e quella
+     a sei gambe sembrava avere la quota sbagliata per il numero di gambe.
+     Sbagliata non era: era solo peggiore sotto ogni aspetto, e questo la
+     tabella non lo diceva. */
+  var dominata={};
+  ks.forEach(function(n1){
+    dominata[n1]=ks.some(function(n2){
+      if(n2===n1)return false;
+      var a=res[n2],b=res[n1];
+      return a.quotaEff>=b.quotaEff-1e-9&&a.prob>=b.prob-1e-12&&
+        (a.quotaEff>b.quotaEff+1e-9||a.prob>b.prob+1e-12)})});
   var SOGLIA=0.05;
   var buone=ks.filter(function(n){return res[n].prob>=SOGLIA});
   var scarse=ks.filter(function(n){return res[n].prob<SOGLIA});
   var mostrate=state.genTutte?ks:(buone.length?buone:ks.slice(0,1));
-  var best=mostrate[0],r=res[best];
+  /* Quella proposta per prima non puo' essere una riga battuta da un'altra su
+     entrambe le cose: sarebbe consigliare la peggiore. */
+  var utili=mostrate.filter(function(n){return !dominata[n]});
+  var best=(utili.length?utili:mostrate)[0],r=res[best];
   var stim=r.gambe.filter(function(l){return l.stimato}).length;
   var combo=r.gambe.filter(function(l){return l.tipo==="combo"}).length;
 
@@ -4630,7 +4667,10 @@ function mostraGen(){
     '<th>Solo gambe</th><th>Bonus</th><th>Quota</th><th>Vincita</th>'+
     '<th>P(vincita)</th><th></th></tr></thead><tbody>';
   mostrate.forEach(function(n){var x=res[n];
-    t+='<tr'+(n===best?' class="hl"':'')+'><td>'+n+'</td>'+
+    t+='<tr'+(n===best?' class="hl"':(dominata[n]?' style="opacity:.55"':''))+
+      '><td>'+n+(dominata[n]?' <span class="pill no" title="Un\u2019altra riga '+
+        'paga di pi\u00f9 e vince pi\u00f9 spesso: questa non conviene mai">'+
+        'battuta</span>':'')+'</td>'+
       '<td class="num">'+fmt(x.quota)+'</td>'+
       '<td class="num">'+(x.bonus>0?'+'+fmt(x.bonus,1)+'%'+(x.bonusStimato?'~':''):
         '<span style="color:var(--ink-faint)">\u2014</span>')+'</td>'+
@@ -4641,13 +4681,23 @@ function mostraGen(){
   if(!state.genTutte&&scarse.length&&buone.length)
     t+='<div class="row-btn"><button class="btn ghost sm" id="btnGenTutte">Mostra anche '+
       'le '+scarse.length+' combinazioni improbabili</button></div>';
+  var nBattute=mostrate.filter(function(n){return dominata[n]}).length;
+  if(nBattute)t+='<p class="note"><b>'+nBattute+' rig'+(nBattute===1?'a segnata':
+    'he segnate')+' <span class="pill no">battuta</span></b>: esiste un\u2019altra '+
+    'lunghezza che paga di pi\u00f9 <i>e</i> vince pi\u00f9 spesso, quindi non c\u2019'+
+    '\u00e8 nessuna ragione per sceglier'+(nBattute===1?'la':'le')+'. Succede '+
+    'perch\u00e9 con pi\u00f9 gambe il bonus abbassa quello che le gambe devono '+
+    'produrre: la ricerca sceglie selezioni pi\u00f9 corte e sfora meno '+
+    'l\u2019obiettivo, cio\u00e8 paga meno.</p>';
   t+='<p class="note"><b>Solo gambe</b> \u00e8 quanto producono le selezioni da sole, '+
     '<b>Quota</b> quanto incassi dopo il bonus: la differenza \u00e8 esattamente quello '+
     'che il bonus ti risparmia. L\u2019obiettivo che scrivi \u00e8 sempre la quota '+
     'finale, quindi pi\u00f9 bonus c\u2019\u00e8 e meno devono faticare le gambe. '+
     'Le percentuali con <span class="num">~</span> sono interpolate fra i due '+
     'scaglioni noti, non lette da un regolamento. Le righe sono ordinate per '+
-    'probabilit\u00e0, non per numero di gambe.</p>';
+    'probabilit\u00e0, non per numero di gambe, e <b>non pagano uguale</b>: '+
+    'ognuna arriva almeno all\u2019obiettivo, chi pi\u00f9 e chi meno. Per '+
+    'confrontarle a parit\u00e0 guarda la vincita accanto alla probabilit\u00e0.</p>';
   t+=levaObiettivo(stake,r.prob);
   e.innerHTML=t;
   Array.prototype.forEach.call(e.querySelectorAll("[data-leva]"),function(tr){
@@ -4944,14 +4994,33 @@ function renderSchedina(){
     document.getElementById("frontNote").textContent="Servono più gambe per l’obiettivo."}
   else{
     var bestK=ks.reduce(function(a,b){return r.byC[a].s.prob>=r.byC[b].s.prob?a:b});
-    var t='<thead><tr><th>Gambe</th><th>Quota</th><th>P(vincita)</th><th>1 su</th><th>EV</th></tr></thead><tbody>';
+    /* Questa tabella diceva "stessa vincita in ogni riga", e non era vero. Ogni
+       riga e' il sottoinsieme piu' probabile di quella lunghezza che ARRIVA
+       all'obiettivo: arrivarci non vuol dire fermarcisi sopra di poco, e con
+       piu' gambe si sfora di piu'. Su una schedina vera le righe uscivano a
+       3,90 e a 5,11 — il 31% di vincita in piu' — mentre la nota invitava a
+       confrontarle come se pagassero uguale. Cosi' il conto sembrava sbagliato
+       rispetto al numero di gambe, e in effetti il confronto lo era.
+       Adesso la vincita e' una colonna, e la nota dice cosa cambia davvero. */
+    var t='<thead><tr><th>Gambe</th><th>Quota</th><th>Vincita</th>'+
+      '<th>P(vincita)</th><th>1 su</th><th>EV</th></tr></thead><tbody>';
     ks.forEach(function(k){var x=r.byC[k].s;
       t+='<tr'+(k===bestK?' class="hl"':'')+'><td>'+k+'</td><td class="q">'+fmt(x.eff)+
-        '</td><td>'+pct(x.prob)+'</td><td>'+fmt(1/x.prob,1)+'</td><td class="'+
+        '</td><td class="num">'+fmt(stake*x.eff)+'\u20ac</td>'+
+        '<td>'+pct(x.prob)+'</td><td>'+fmt(1/x.prob,1)+'</td><td class="'+
         (x.ev>=0?"pos":"neg")+'">'+sgn(x.ev)+'</td></tr>'});
     document.getElementById("frontTable").innerHTML=t+"</tbody>";
-    document.getElementById("frontNote").innerHTML="Stessa vincita in ogni riga: cambia "+
-      "solo quanto è probabile incassarla. La riga evidenziata è la più probabile."}
+    var lo=r.byC[ks[0]].s,hi=r.byC[ks[ks.length-1]].s;
+    document.getElementById("frontNote").innerHTML="Ogni riga è la combinazione "+
+      "più probabile di quella lunghezza che arriva almeno a <b class=\"num\">"+
+      fmt(target)+"</b>. <b>Le vincite non sono uguali</b>: con più gambe si "+
+      "sfora l’obiettivo di più, quindi si incassa di più quando va "+
+      "bene"+(ks.length>1?" — da <b class=\"num\">"+fmt(stake*lo.eff)+
+      " €</b> a <b class=\"num\">"+fmt(stake*hi.eff)+" €</b>"+
+      ", con la probabilità che scende da <b class=\"num\">"+pct(lo.prob)+
+      "</b> a <b class=\"num\">"+pct(hi.prob)+"</b>":"")+". Confrontale sulla "+
+      "colonna <b>EV</b>, che le mette sulla stessa scala; la riga evidenziata "+
+      "è solo la più probabile, non la migliore."}
 
   /* Qui c'era un errore grave: da ricopiare veniva messo il SOTTOINSIEME
      suggerito dall'obiettivo quota, non la schedina. Con nove gambe in
