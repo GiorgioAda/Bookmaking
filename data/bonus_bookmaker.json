@@ -1,70 +1,105 @@
 {
   "_avvertenza": [
-    "PARAMETRI PRINCIPALI CONFERMATI DA PIU' FONTI, TABELLA INTERMEDIA NO.",
-    "Per Goldbet risultano confermati da fonti indipendenti: minimo 5 eventi,",
-    "quota minima 1.25 per gamba, tetto di vincita 50.000 EUR, eventi oltre 7",
-    "giorni esclusi dal calcolo, +250% a 30 eventi. Restano non confermate le",
-    "percentuali fra il nono e il ventinovesimo evento.",
+    "Valori trascritti dalla tabella comparativa di bonusmultipla.com (rilevazione",
+    "dichiarata luglio 2026) e dalle schede operatore per operatore della stessa",
+    "pagina. Sostituiscono la raccolta precedente, che mescolava fonti diverse e",
+    "si contraddiceva: per Goldbet dava quota minima 1,25 e +250% a 30 eventi,",
+    "qui risultano 1,20 e +200%.",
     "",
-    "Raccolti da siti di comparazione e affiliazione, non dai regolamenti dei",
-    "bookmaker. Le promozioni cambiano spesso e le fonti si contraddicono fra",
-    "loro (per Eurobet il massimo dichiarato varia da +144,7% a +354,9%).",
+    "La correzione e' coerente con l'unica misura vera che abbiamo: una giocata",
+    "da 9 gambe con 10 EUR ha ricevuto 6,96 EUR di bonus. Con questa curva a 9",
+    "eventi il bonus vale +9,0%, che su 10 EUR fa 6,96 EUR a quota 7,71 — una",
+    "quota normale per nove gambe sopra 1,20. Con la curva vecchia (+17,1% a 9",
+    "eventi) la stessa giocata avrebbe richiesto quota 4,08, impossibile con",
+    "nove gambe che devono stare tutte sopra la quota minima.",
     "",
-    "Servono a dare la forma della curva e a fare i primi conti, non a decidere",
-    "dove puntare. Prima di giocarci sopra, i valori vanno sostituiti con quelli",
-    "del regolamento ufficiale del proprio conto.",
+    "Resta una fonte di comparazione, non il regolamento del tuo conto: nota",
+    "solo i due estremi della curva (la percentuale di partenza e il massimo),",
+    "mentre gli scaglioni in mezzo non li pubblica nessuno. L'app li interpola e",
+    "li marca con ~. Quando il banco ti mostra il bonus vero su una schedina,",
+    "riportalo nel campo 'Il bonus che ti danno': una misura dal tuo conto",
+    "sostituisce qualunque tabella.",
     "",
-    "ancoraggi: numero di eventi -> percentuale di bonus effettivamente trovata.",
-    "Fra un ancoraggio e l'altro gli strumenti interpolano, e lo dichiarano."
+    "ancoraggi: numero di eventi -> percentuale di bonus.",
+    "sotto_soglia: cosa succede a una gamba sotto la quota minima. 'esclusa' =",
+    "non conta ma il bonus resta (confermato solo per Snai); null = non",
+    "documentato, e su alcuni operatori annulla l'intera maggiorazione."
   ],
   "_fonti": [
-    "https://www.betscanner.it/news/approfondimenti/bonus-multipla-goldbet-come-funziona-e-come-ottenerlo",
-    "https://www.calciomercato.com/scommesse/recensioni-goldbet/bonus",
-    "https://www.oddschecker.com/it/bonus-scommesse/bonus-multipla",
-    "https://www.scommesse.org/bonus/bonus-multipla/",
-    "https://bookmakerbonus.it/bonus-multipla",
-    "https://www.goldbet.it/guida/regole-sportive/calcio (regolamento ufficiale: non raggiungibile dall'ambiente di sviluppo, da verificare a mano)"
+    "https://bonusmultipla.com (tabella comparativa e schede per operatore, rilevazione dichiarata luglio 2026)",
+    "regolamenti ufficiali dei singoli operatori: non raggiungibili dall'ambiente di sviluppo, da verificare a mano sul proprio conto"
   ],
-  "_rilevato_il": "2026-09-15",
+  "_rilevato_il": "2026-09-18",
   "bookmaker": {
     "goldbet": {
       "gambe_minime": 5,
-      "quota_minima_per_gamba": 1.25,
+      "quota_minima_per_gamba": 1.2,
       "ancoraggi": {
-        "5": 4,
-        "8": 15,
-        "30": 250
+        "5": 5,
+        "30": 200
       },
       "tetto_vincita_eur": 50000,
-      "note": "Parametri confermati da fonti indipendenti; la quota minima risulta 1.25 (una fonte diceva 1.20, non confermata). Eventi oltre 7 giorni dalla giocata non contribuiscono al bonus. Percentuali fra 9 e 29 eventi non note: gli strumenti interpolano e lo dichiarano.",
-      "eventi_entro_giorni": 7
+      "eventi_entro_giorni": 7,
+      "sotto_soglia": null,
+      "cashout_annulla": true,
+      "esclusioni": ["sistemi", "antepost"],
+      "note": "Dal 5% in quintupla fino al 200% con 30 eventi, quota minima 1,20. La combinazione di quota minima bassa e massimo alto la rende una delle offerte piu' equilibrate del confronto. Finestra di 7 giorni e tetto di 50.000 EUR vengono dalla raccolta precedente: questa fonte non li cita ne' li smentisce, e tenerli sbaglia dalla parte prudente (fanno uscire un bonus piu' basso, non piu' alto)."
     },
-    "eurobet": {
+    "sportium": {
       "gambe_minime": 5,
-      "quota_minima_per_gamba": 1.25,
+      "quota_minima_per_gamba": 1.24,
       "ancoraggi": {
         "5": 4,
-        "30": 145
+        "30": 630
       },
-      "note": "Una fonte dichiara un massimo di +354,9%, un'altra circa +144,7%. Divergenza non risolta."
+      "tetto_vincita_eur": null,
+      "eventi_entro_giorni": null,
+      "sotto_soglia": null,
+      "cashout_annulla": true,
+      "esclusioni": ["sistemi", "antepost"],
+      "note": "La maggiorazione piu' alta fra i concessionari confrontati: fino al 630% sulla vincita potenziale. A quanti eventi tocchi il massimo la fonte non lo dice: qui e' assunto 30 come per gli altri, quindi la curva in mezzo e' meno affidabile del solito."
+    },
+    "betflag": {
+      "gambe_minime": 3,
+      "quota_minima_per_gamba": 1.5,
+      "ancoraggi": {
+        "3": 3,
+        "30": 500
+      },
+      "tetto_vincita_eur": null,
+      "eventi_entro_giorni": null,
+      "sotto_soglia": null,
+      "cashout_annulla": true,
+      "esclusioni": ["sistemi", "giocate live"],
+      "note": "Percentuale massima piu' alta del mercato italiano dopo Sportium, ma il contrappeso e' la quota minima 1,50 per evento, la piu' alta del confronto: con esiti ad alta probabilita' una schedina lunga e' quasi impossibile da costruire."
     },
     "planetwin365": {
       "gambe_minime": 5,
-      "quota_minima_per_gamba": 1.25,
+      "quota_minima_per_gamba": 1.3,
       "ancoraggi": {
-        "5": 4,
+        "5": 5,
         "30": 255
       },
-      "note": null
+      "tetto_vincita_eur": null,
+      "eventi_entro_giorni": null,
+      "sotto_soglia": null,
+      "cashout_annulla": true,
+      "esclusioni": ["sistemi", "antepost"],
+      "note": "Fra le progressioni piu' generose nella fascia 8-15 eventi, dove si concentra la maggior parte delle schedine."
     },
-    "snai": {
-      "gambe_minime": 5,
-      "quota_minima_per_gamba": 1.25,
+    "better": {
+      "gambe_minime": 2,
+      "quota_minima_per_gamba": 1.03,
       "ancoraggi": {
-        "5": 3.5,
-        "30": 144.6
+        "2": 4,
+        "30": 250
       },
-      "note": "Una fonte indica un massimo di 177,25%."
+      "tetto_vincita_eur": null,
+      "eventi_entro_giorni": null,
+      "sotto_soglia": null,
+      "cashout_annulla": true,
+      "esclusioni": ["sistemi", "antepost"],
+      "note": "La soglia di ingresso piu' bassa in assoluto: si attiva con 2 eventi e la quota minima 1,03 rende conteggiabile quasi ogni selezione. Per chi gioca doppie e triple e' l'unica promozione davvero sfruttabile."
     },
     "sisal": {
       "gambe_minime": 5,
@@ -73,25 +108,54 @@
         "5": 4,
         "30": 177
       },
-      "note": null
+      "tetto_vincita_eur": null,
+      "eventi_entro_giorni": 7,
+      "sotto_soglia": null,
+      "cashout_annulla": true,
+      "esclusioni": ["sistemi", "antepost"],
+      "note": "Gli eventi inseriti devono concludersi entro 7 giorni dalla conferma della giocata: il vincolo esclude di fatto le competizioni distribuite su piu' settimane. Valida su tutti gli sport e su tutte le classi di esito."
     },
-    "better": {
-      "gambe_minime": 2,
-      "quota_minima_per_gamba": 1.03,
+    "eurobet": {
+      "gambe_minime": 5,
+      "quota_minima_per_gamba": 1.25,
       "ancoraggi": {
-        "2": 1,
-        "30": 200
+        "5": 4,
+        "30": 144.7
       },
-      "note": "L'unico che parte da 2 eventi e con quota minima molto bassa. La percentuale a 2 eventi non e' confermata: il valore qui e' un segnaposto prudente."
+      "tetto_vincita_eur": null,
+      "eventi_entro_giorni": null,
+      "sotto_soglia": null,
+      "cashout_annulla": true,
+      "esclusioni": ["sistemi"],
+      "note": "Gli eventi sospesi o rinviati non concorrono al conteggio e fanno ricalcolare la percentuale. La vincita comprensiva di maggiorazione e' soggetta a massimale, il cui importo la fonte non riporta."
+    },
+    "snai": {
+      "gambe_minime": 5,
+      "quota_minima_per_gamba": 1.25,
+      "ancoraggi": {
+        "5": 3.5,
+        "30": 144.6
+      },
+      "tetto_vincita_eur": null,
+      "eventi_entro_giorni": null,
+      "sotto_soglia": "esclusa",
+      "cashout_annulla": true,
+      "esclusioni": ["sistemi", "antepost"],
+      "note": "Vale su tutti gli sport del palinsesto, esclusi solo antepost e sistemi. Le selezioni sotto 1,25 non annullano la maggiorazione: vengono semplicemente escluse dal conteggio."
     },
     "bet365": {
       "gambe_minime": 3,
       "quota_minima_per_gamba": 1.2,
       "ancoraggi": {
-        "3": 3,
-        "30": 100
+        "3": 5,
+        "14": 70
       },
-      "note": "Ancoraggi non confermati."
+      "tetto_vincita_eur": 50000,
+      "eventi_entro_giorni": null,
+      "sotto_soglia": null,
+      "cashout_annulla": true,
+      "esclusioni": ["galoppo", "trotto", "sport virtuali", "antepost"],
+      "note": "Percentuale massima piu' contenuta del confronto, ma si attiva gia' con 3 eventi e il massimo e' raggiunto a 14 selezioni: oltre non cresce piu'. La maggiorazione decade se si chiude l'intera schedina con il cash out. Massimale di vincita comprensivo di bonus 50.000 EUR."
     }
   }
 }
