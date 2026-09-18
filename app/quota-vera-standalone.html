@@ -1557,8 +1557,13 @@ function prezzoRif(p,mktId,sel){
     return null}
   v.sort(function(a,b){return a.price-b.price});
   if(state.rif==="migliore")return v[v.length-1];
-  // Mediana. Con un numero pari di banchi si prende il piu' basso dei due
-  // centrali: sovrastimare la quota che troverai e' l'errore che costa.
+  /* Mediana. Con un numero pari di banchi si prende il piu' basso dei due
+     centrali, e con due soli banchi — il caso normale — vuol dire sempre il
+     peggiore dei due. E' prudente ed e' un prezzo che un banco espone davvero,
+     e quest'ultima cosa vale piu' della prima: il punto di mezzo fra due quote
+     sarebbe un numero che nessuno paga, cioe' esattamente quello che questa
+     app ha smesso di mostrare. Quello che mancava non era una media, era
+     poter vedere e cambiare il riferimento da dove si costruisce la schedina. */
   return v[Math.floor((v.length-1)/2)]}
 
 /* Il prezzo vero di una selezione, con scritto da dove viene. Prima stava
@@ -4760,14 +4765,32 @@ function renderGen(){
       'Poi in questa scheda vedi <b>tutte le loro quote a confronto</b> e cerco fra '+
       'mercati e combo la giocata pi\u00f9 sicura che arriva alla quota che vuoi.</p>';
     return}
+  /* Quale prezzo usare per costruire la schedina era una scritta, non un
+     controllo: "prezzi Tipica". E "Tipica", con i due banchi che il fornitore
+     porta di solito, significa il piu' basso dei due — mentre la tabella delle
+     quote due pannelli piu' sotto mostra il migliore. Stessa selezione, due
+     numeri diversi, e quello della schedina sembrava sbagliato. Adesso il
+     riferimento si vede e si cambia da qui. */
   var h='<p class="lede" style="margin-bottom:10px">'+
     (scelte.length?'<b>'+scelte.length+' partit'+(scelte.length===1?'a':'e')+
       '</b> in schedina per forza'+(state.tutteQuotate?', pi\u00f9 '+
       (partiteCercabili().length-scelte.length)+' da cui pescare':''):
      state.tutteQuotate?'<b>'+partiteCercabili().length+' partite quotate</b> '+
       '(tutto il palinsesto)':'nessuna partita scelta')+' \u00b7 banco <b>'+
-    esc(nomeBook(state.book))+'</b> (per il bonus) \u00b7 prezzi <b>'+
-    esc(RIFERIMENTI[state.rif].nome)+'</b></p>'+
+    esc(nomeBook(state.book))+'</b> (per il bonus)</p>'+
+    '<div class="kv" style="border:0;padding:0 0 4px"><span>Quale prezzo usare'+
+    '</span><span class="perche" data-perche="'+
+    esc("Il fornitore porta i banchi che copre, quasi mai il tuo. Tipica prende "+
+        "il prezzo di mezzo fra quelli disponibili, e con due banchi vuol dire "+
+        "il piu' basso dei due: e' la stima prudente di quello che troverai sul "+
+        "conto. Migliore prende il piu' alto, che incassi solo giocando proprio "+
+        "su quel banco. Il mio banco usa solo le righe di "+nomeBook(state.book)+
+        ", e se il fornitore non lo copre non resta niente da cui costruire.")+
+    '">perch\u00e9</span></div>'+
+    '<div class="filters" id="rifGen" style="margin-bottom:8px">'+
+    Object.keys(RIFERIMENTI).map(function(k){
+      return'<button class="chip" data-rg="'+k+'" aria-pressed="'+(state.rif===k)+
+        '">'+esc(RIFERIMENTI[k].nome)+'</button>'}).join("")+'</div>'+
     '<div class="grid g2">'+
     '<div><label for="genM">Gambe minime'+
       (state.genTocco?' <button class="chip" id="genAuto" style="padding:1px 5px;'+
@@ -4829,6 +4852,10 @@ function renderGen(){
   var ga=document.getElementById("genAuto");
   if(ga)ga.addEventListener("click",function(){
     state.genTocco=false;renderGen()});
+  Array.prototype.forEach.call(box.querySelectorAll("[data-rg]"),function(b2){
+    b2.addEventListener("click",function(){
+      state.rif=b2.getAttribute("data-rg");salvaImp();
+      state.gen=null;renderGen();renderOccasioni()})});
   var gt=document.getElementById("genTutteQ");
   if(gt)gt.addEventListener("change",function(){
     state.tutteQuotate=this.checked;salvaImp();state.gen=null;renderGen()});
@@ -4863,7 +4890,11 @@ function mostraGen(){
       fmt(state.genQ||5)+
       ((state.genMin||1)>1?' con almeno '+state.genMin+' gambe. Prova ad '+
         'abbassare il minimo.':'.')+
-      (state.soloReali?' Con <b>solo quote vere</b> acceso la ricerca usa '+
+      (state.rif==="mio"?' Il prezzo di riferimento \u00e8 <b>Il mio banco</b>: '+
+      'la ricerca usa solo le righe di '+esc(nomeBook(state.book))+', e se il '+
+      'fornitore di quote non lo copre non resta niente da cui costruire. Prova '+
+      '<b>Tipica</b> qui sopra.':
+      state.soloReali?' Con <b>solo quote vere</b> acceso la ricerca usa '+
       'soltanto i prezzi che un banco espone, e su queste partite non bastano. '+
       'Scarica le quote dalla scheda <b>Partite</b>, oppure scegli altre partite: '+
       'togliere la spunta farebbe arrivare la schedina a quota, ma con numeri che '+
