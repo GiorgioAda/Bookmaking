@@ -1283,7 +1283,7 @@ function legaEsclusi(e){
     var sc=partiteCercabili();
     state.genTutte=false;
     state.gen=generaSchedina(sc,state.genQ||obiettivo(),Math.min(10,state.genN||6),
-      state.soloReali,state.genMin||1,state.genCombo===false);
+      state.soloReali,state.genMin||1,state.genCombo===false,obbligatorieScelte());
     mostraGen();renderVere()}
   Array.prototype.forEach.call(e.querySelectorAll("[data-rimetti]"),function(b){
     b.addEventListener("click",function(){
@@ -1313,14 +1313,28 @@ function chipEsclusi(){
    scelta delle partite e' parte del problema, non un vincolo che ti dai. Con
    l'interruttore acceso entrano tutte quelle di cui abbiamo almeno una quota. */
 function partiteCercabili(){
-  if(!state.tutteQuotate)return state.scelte.map(trovaPartita).filter(Boolean);
+  var scelte=state.scelte.map(trovaPartita).filter(Boolean);
+  if(!state.tutteQuotate)return scelte;
+  /* Le spuntate restano SEMPRE, e restano per prime. Prima l'interruttore le
+     buttava via e cercava nel palinsesto intero: spuntare cinque partite e
+     vedersene proporre altre cinque non e' un'opzione, e' l'app che ignora
+     quello che le hai chiesto. */
+  var visti={};scelte.forEach(function(p){visti[p.id]=1});
   var ora=Date.now();
-  return tutteLePartite().filter(function(p){
+  var altre=tutteLePartite().filter(function(p){
+    if(visti[p.id])return false;
     if(!mercatiConQuote(p).length)return false;
     /* Una partita gia' iniziata non si gioca piu': tenerla dentro gonfia la
        probabilita' con selezioni che nessun banco accetta. */
     var t=Date.parse(p.quando);
-    return !isFinite(t)||t>ora})}
+    return !isFinite(t)||t>ora});
+  return scelte.concat(altre)}
+
+/* Le partite che hai spuntato sono un vincolo, non un suggerimento: la
+   schedina proposta deve contenerle tutte. Quello che l'interruttore aggiunge
+   e' materiale da cui pescare le gambe restanti, se ne servono. */
+function obbligatorieScelte(){
+  var m={};state.scelte.forEach(function(id){m[id]=1});return m}
 
 function chiaveEsito(pid,mkt,sel){return pid+"|"+mkt+"|"+sel}
 function salvaEsclusi(){lsSet("qv2.esclusi",state.esclusi)}
@@ -1328,23 +1342,34 @@ function escludiEsito(pid,mkt,sel,nome){
   state.esclusi[chiaveEsito(pid,mkt,sel)]=nome||sel;salvaEsclusi()}
 function rimettiEsito(k){delete state.esclusi[k];salvaEsclusi()}
 
-function generaSchedina(partite,obiettivo,maxGambe,soloReali,minGambe,senzaCombo){
+var ultimaRicerca={};
+function generaSchedina(partite,obiettivo,maxGambe,soloReali,minGambe,senzaCombo,obbligatorie){
   /* Due filtri distinti, che prima erano uno solo. "Niente combo" e "solo
      prezzi veri" finivano nella stessa casella perche' le combo non le
      pubblica nessun fornitore, quindi togliere le une toglieva quasi sempre
      anche gli altri: per caso, non per costruzione. Il risultato era che chi
      voleva le combo si ritrovava dentro anche le quote inventate. */
-  var gruppi=partite.map(function(p){return candidatiPartita(p,!!soloReali)})
-    .map(function(g){
-      return g.filter(function(c){
+  var obb=obbligatorie||{};
+  var conCand=partite.map(function(p){
+      return{p:p,g:candidatiPartita(p,!!soloReali).filter(function(c){
         if(soloReali&&c.stimato)return false;
         if(senzaCombo&&c.tipo==="combo")return false;
         if(state.esclusi[chiaveEsito(c.partita.id,c.mkt,c.sel)])return false;
-        return true})})
-    .filter(function(g){return g.length});
+        return true})}});
+  /* Una partita spuntata di cui non sappiamo prezzare niente non puo' essere
+     obbligatoria: va detto, non fatto in silenzio. */
+  ultimaRicerca={obbSenzaEsiti:conCand.filter(function(x){
+    return obb[x.p.id]&&!x.g.length}).map(function(x){
+      return x.p.casa+" \u2013 "+x.p.ospiti})};
+  conCand=conCand.filter(function(x){return x.g.length});
+  // Le obbligatorie prima: il calcolo forza una gamba dai primi gruppi.
+  conCand.sort(function(a,b){return(obb[b.p.id]?1:0)-(obb[a.p.id]?1:0)});
+  var nObb=conCand.filter(function(x){return obb[x.p.id]}).length;
+  var gruppi=conCand.map(function(x){return x.g});
   if(!gruppi.length)return null;
+  ultimaRicerca.obbligatorie=nObb;
   var risultati={},qmin=bookCorrente().quota_minima;
-  var da=Math.max(1,minGambe||1);
+  var da=Math.max(1,minGambe||1,nObb);
   for(var n=da;n<=Math.min(maxGambe,gruppi.length);n++){
     // Il bonus del banco abbassa la quota che le gambe devono raggiungere da
     // sole: con piu' gambe l'obiettivo diventa piu' facile, ed e' l'unica cosa
@@ -1356,11 +1381,17 @@ function generaSchedina(partite,obiettivo,maxGambe,soloReali,minGambe,senzaCombo
       // mancherebbe l'obiettivo proprio perche' abbiamo dato per scontato il
       // bonus. Meglio restringere la ricerca che scoprirlo dopo.
       var ridotti=gruppi.map(function(g){
-        return g.filter(function(cnd){return cnd.price>=qmin})})
-        .filter(function(g){return g.length});
-      if(ridotti.length>=n)
-        sol=miglioreCombinazione(ridotti,n,Math.log(obiettivo/(1+bn.v/100)))}
-    if(!sol)sol=miglioreCombinazione(gruppi,n,Math.log(obiettivo));
+        return g.filter(function(cnd){return cnd.price>=qmin})});
+      /* Se una partita obbligatoria non ha nessuna selezione sopra la quota
+         minima del banco, la schedina col bonus non esiste: si passa a quella
+         senza, invece di scartare la partita che avevi chiesto. */
+      var obbOk=true;
+      for(var oi2=0;oi2<nObb;oi2++)if(!ridotti[oi2].length)obbOk=false;
+      if(obbOk){
+        var rid2=ridotti.filter(function(g,idx){return idx<nObb||g.length});
+        if(rid2.length>=n)
+          sol=miglioreCombinazione(rid2,n,Math.log(obiettivo/(1+bn.v/100)),nObb)}}
+    if(!sol)sol=miglioreCombinazione(gruppi,n,Math.log(obiettivo),nObb);
     if(!sol)continue;
     // Se il regolamento esclude dal bonus gli eventi troppo lontani, quelle
     // gambe non contano: darle per buone gonfia il bonus e fa mancare
@@ -1379,7 +1410,7 @@ function generaSchedina(partite,obiettivo,maxGambe,soloReali,minGambe,senzaCombo
     risultati[n]=sol}
   return risultati}
 
-function miglioreCombinazione(gruppi,n,logT){
+function miglioreCombinazione(gruppi,n,logT,nObb){
   var tettoLog=0;
   gruppi.forEach(function(g){
     var mx=0;g.forEach(function(c){mx=Math.max(mx,Math.log(c.price))});tettoLog+=mx});
@@ -1395,8 +1426,15 @@ function miglioreCombinazione(gruppi,n,logT){
     for(j=0;j<=n;j++){parB[i].push(new Int32Array(cap+1).fill(-1));
       parC[i].push(new Int32Array(cap+1).fill(-1))}}
 
+  nObb=nObb||0;
+  if(n<nObb)return null;
   for(var gi=0;gi<G;gi++){
-    var nxt=[];for(i=0;i<=n;i++)nxt.push(Float64Array.from(dp[i]));
+    /* Saltare un gruppo e' gratis: nxt parte come copia di dp. Per i gruppi
+       obbligatori — le partite che hai spuntato — quella copia non si fa, e
+       l'unico modo di avanzare e' prendere una gamba da li'. */
+    var nxt=[],obbl=gi<nObb;
+    for(i=0;i<=n;i++)nxt.push(obbl?new Float64Array(cap+1).fill(NEG):
+      Float64Array.from(dp[i]));
     for(var usate=0;usate<n;usate++){
       var riga=dp[usate];
       for(var b=0;b<=cap;b++){
@@ -4669,9 +4707,13 @@ function renderGen(){
      nasce a cinque gambe, una per partita. Finche' non tocchi i due campi
      restano agganciati alla selezione; appena li tocchi comandano loro, e
      smettono di cambiarti sotto le mani cio' che avevi impostato. */
-  if(!state.genTocco&&scelte.length&&!state.tutteQuotate){
+  if(!state.genTocco&&scelte.length){
     state.genMin=Math.min(10,scelte.length);
-    state.genN=Math.min(10,scelte.length)}
+    state.genN=Math.max(state.genN||0,Math.min(10,scelte.length))}
+  /* Con quattro partite obbligatorie una schedina da due gambe non esiste: il
+     minimo lo alza la ricerca comunque, ma il campo deve dirlo prima. */
+  if(scelte.length&&(state.genMin||1)<Math.min(10,scelte.length))
+    state.genMin=Math.min(10,scelte.length);
   if(!scelte.length&&!state.tutteQuotate){
     box.innerHTML='<p class="lede" style="margin:0">Spunta le partite che ti '+
       'interessano nella scheda <b>Partite</b> \u2014 la casella a sinistra di ogni '+
@@ -4680,17 +4722,19 @@ function renderGen(){
       'mercati e combo la giocata pi\u00f9 sicura che arriva alla quota che vuoi.</p>';
     return}
   var h='<p class="lede" style="margin-bottom:10px">'+
-    (state.tutteQuotate?'<b>'+partiteCercabili().length+' partite quotate</b> '+
-      '(tutto il palinsesto)':scelte.length+' partit'+
-      (scelte.length===1?'a scelta':'e scelte'))+' \u00b7 banco <b>'+
+    (scelte.length?'<b>'+scelte.length+' partit'+(scelte.length===1?'a':'e')+
+      '</b> in schedina per forza'+(state.tutteQuotate?', pi\u00f9 '+
+      (partiteCercabili().length-scelte.length)+' da cui pescare':''):
+     state.tutteQuotate?'<b>'+partiteCercabili().length+' partite quotate</b> '+
+      '(tutto il palinsesto)':'nessuna partita scelta')+' \u00b7 banco <b>'+
     esc(nomeBook(state.book))+'</b> (per il bonus) \u00b7 prezzi <b>'+
     esc(RIFERIMENTI[state.rif].nome)+'</b></p>'+
     '<div class="grid g2">'+
     '<div><label for="genM">Gambe minime'+
-      (state.tutteQuotate?'':
+      (scelte.length?' <span style="color:var(--accent);font-size:9.5px">\u2265 '+
+        scelte.length+' spuntate</span>':
        state.genTocco?' <button class="chip" id="genAuto" style="padding:1px 5px;'+
-        'font-size:9px;vertical-align:middle">auto</button>':
-        ' <span style="color:var(--accent);font-size:9.5px">= partite scelte</span>')+
+        'font-size:9px;vertical-align:middle">auto</button>':'')+
       '</label>'+
     '<input type="number" id="genM" step="1" min="1" max="10" value="'+
       (state.genMin||1)+'" inputmode="numeric"></div>'+
@@ -4722,15 +4766,18 @@ function renderGen(){
     'align-items:center;gap:8px;margin:0;font-size:13px;color:var(--ink)">'+
     '<input type="checkbox" id="genTutteQ" style="width:18px;height:18px;'+
     'accent-color:var(--accent)"'+(state.tutteQuotate?" checked":"")+
-    '> <b>cerca in tutto il palinsesto</b></label><span class="num">'+
+    '> <b>pesca anche dal resto del palinsesto</b></label><span class="num">'+
     partiteCercabili().length+' partite</span></div>'+
-    '<p class="note" style="margin-top:6px">Spuntare le partite serve a dire '+
-    '\u201cvoglio giocare queste\u201d. Ma se quello che chiedi \u00e8 la giocata '+
-    '<b>pi\u00f9 probabile</b> che paga quanto hai scritto, quali partite usare '+
-    '\u00e8 parte del problema, non un vincolo da darsi: con la spunta la ricerca '+
-    'guarda ogni partita di cui abbiamo almeno una quota e non ancora iniziata, '+
-    'tutti i mercati compresi. Pi\u00f9 materiale, probabilit\u00e0 pi\u00f9 alta '+
-    'a parit\u00e0 di vincita.</p>'+
+    '<p class="note" style="margin-top:6px">'+
+    (scelte.length?'Le <b>'+scelte.length+' partit'+(scelte.length===1?'a spuntata':
+      'e spuntate')+'</b> ci sono comunque, e ci sono <b>tutte</b>: sono un '+
+      'vincolo, non un suggerimento. Con la spunta, se servono altre gambe per '+
+      'arrivare alla quota, le pesco dal resto del palinsesto invece di '+
+      'rinunciare; senza, la schedina si fa solo con le tue.':
+     'Nessuna partita spuntata: con la spunta la ricerca guarda ogni partita di '+
+     'cui abbiamo almeno una quota e non ancora iniziata, tutti i mercati '+
+     'compresi. Pi\u00f9 materiale, probabilit\u00e0 pi\u00f9 alta a parit\u00e0 '+
+     'di vincita.')+'</p>'+
     '<div class="row-btn"><button class="btn" id="btnGen">Cerca le pi\u00f9 plausibili</button>'+
     '<button class="btn ghost" id="btnGenClear">Deseleziona tutto</button></div>'+
     '<div id="genEsito"></div>';
@@ -4774,7 +4821,7 @@ function renderGen(){
     state.genTutte=false;
     var t=Date.now();
     state.gen=generaSchedina(partiteCercabili(),state.genQ,Math.min(10,state.genN),
-      state.soloReali,state.genMin,state.genCombo===false);
+      state.soloReali,state.genMin,state.genCombo===false,obbligatorieScelte());
     state.genMs=Date.now()-t;
     mostraGen()});
   if(state.gen)mostraGen()}
@@ -4877,6 +4924,15 @@ function mostraGen(){
       fmt(bk.quota_minima)+'</b>: la ricerca lo ha gi\u00e0 imposto, ma verifica '+
       'sulla schedina reale prima di confermare.</div>';
 
+  if(ultimaRicerca.obbSenzaEsiti&&ultimaRicerca.obbSenzaEsiti.length)
+    t+='<div class="warn"><b>'+ultimaRicerca.obbSenzaEsiti.length+' partit'+
+      (ultimaRicerca.obbSenzaEsiti.length===1?'a spuntata non \u00e8':
+       'e spuntate non sono')+' in schedina</b>: '+
+      esc(ultimaRicerca.obbSenzaEsiti.join(", "))+'. Di quest'+
+      (ultimaRicerca.obbSenzaEsiti.length===1?'a':'e')+' non sappiamo prezzare '+
+      'nessun esito \u2014 con <b>solo quote vere</b> acceso servono quote '+
+      'scaricate o scritte da te. Scaricale dalla scheda <b>Partite</b>, oppure '+
+      'apri la partita e scrivi le quote che leggi sul conto.</div>';
   t+='<div class="tbl-scroll" style="margin-top:10px"><table><thead><tr><th>Partita</th>'+
     '<th>Esito</th><th>Quota</th><th>Prob.</th><th></th></tr></thead><tbody>';
   r.gambe.forEach(function(l){
@@ -5003,7 +5059,7 @@ function mostraGen(){
     state.genTutte=false;
     var t0=Date.now();
     state.gen=generaSchedina(sc,state.genQ||obiettivo(),Math.min(10,state.genN||6),
-      state.soloReali,state.genMin||1,state.genCombo===false);
+      state.soloReali,state.genMin||1,state.genCombo===false,obbligatorieScelte());
     state.genMs=Date.now()-t0;
     mostraGen();renderVere()}
   var alt=document.getElementById("btnGenAltra");
@@ -5041,7 +5097,7 @@ function levaObiettivo(stake,probAttuale){
     var t=Math.max(1.5,Math.round(q*k*2)/2);
     if(vis[t])return;vis[t]=1;
     var r=generaSchedina(scelte,t,Math.min(10,state.genN||6),
-      state.soloReali,state.genMin||1,state.genCombo===false);
+      state.soloReali,state.genMin||1,state.genCombo===false,obbligatorieScelte());
     if(!r||!Object.keys(r).length)return;
     var best=null;
     Object.keys(r).forEach(function(n){if(!best||r[n].prob>r[best].prob)best=n});
@@ -5081,7 +5137,7 @@ function vaiAObiettivo(t){
   state.genTutte=false;
   var t0=Date.now();
   state.gen=generaSchedina(scelte,t,Math.min(10,state.genN||6),
-    state.soloReali,state.genMin||1,state.genCombo===false);
+    state.soloReali,state.genMin||1,state.genCombo===false,obbligatorieScelte());
   state.genMs=Date.now()-t0;
   mostraGen();renderSchedina();
   var g=document.getElementById("genEsito");
