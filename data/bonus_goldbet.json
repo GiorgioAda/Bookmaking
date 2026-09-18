@@ -1,21 +1,18 @@
 {
   "_come_compilare": [
-    "Questa tabella decide se allungare la schedina conviene o no.",
-    "Si trova sul sito o sull'app del bookmaker, di solito sotto",
-    "'Bonus Multipla', 'Promozioni' o nelle condizioni del palinsesto.",
+    "ATTENZIONE: l'app NON legge piu' questo file.",
+    "I valori vivi stanno nell'app, in 'Regolamento ufficiale del banco'",
+    "(scheda Schedina -> Impostazioni, bonus e registro). Quello che scrivi",
+    "li' vince su ogni altro valore e resta nel tuo browser.",
     "",
-    "bonus_per_gambe: numero di gambe -> percentuale di bonus sulla vincita.",
-    "   Scrivi 15 per +15%. Metti solo gli scaglioni che il bookmaker elenca:",
-    "   per i numeri intermedi vale automaticamente lo scaglione raggiunto.",
-    "quota_minima_per_gamba: sotto questa quota una gamba non conta per il bonus.",
-    "gambe_minime: da quante gambe il bonus comincia ad applicarsi.",
-    "",
-    "I valori qui sotto sono SEGNAPOSTO PLAUSIBILI, non quelli di Goldbet.",
-    "Vanno sostituiti con i tuoi, altrimenti i conti sono inventati."
+    "Questo file resta solo per examples/verifica_bonus.py, lo strumento da",
+    "riga di comando. I numeri qui sotto sono SEGNAPOSTO, non quelli di",
+    "Goldbet, e NON coincidono con quelli che l'app usa come ripiego:",
+    "tenerne due serie diverse era gia' di per se' un errore."
   ],
   "bookmaker": "goldbet",
   "gambe_minime": 5,
-  "quota_minima_per_gamba": 1.20,
+  "quota_minima_per_gamba": 1.2,
   "bonus_per_gambe": {
     "5": 5,
     "6": 10,

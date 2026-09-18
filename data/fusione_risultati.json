@@ -1,0 +1,10 @@
+{
+  "_cosa_misura": "Errore di previsione al variare del peso dato al modello rispetto al mercato, su 33.300 partite delle 11 divisioni, 2018-2026, in walk-forward.",
+  "_conclusione": "Il minimo e' a peso 0.00: qualunque peso sul modello peggiora la previsione. Per minimizzare l'errore conviene la probabilita' di mercato ripulita del margine.",
+  "n_partite": 33300,
+  "rps_per_peso_modello": {
+    "0.00": 0.20290, "0.05": 0.20297, "0.10": 0.20306, "0.15": 0.20317,
+    "0.20": 0.20330, "0.25": 0.20345, "0.35": 0.20381, "0.50": 0.20451,
+    "0.65": 0.20540, "1.00": 0.20823
+  }
+}

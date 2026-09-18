@@ -1,0 +1,50 @@
+{
+  "stagione": "2026-27",
+  "quando": "2026-09-16T13:23:30+00:00",
+  "presi": {
+    "IT1": {
+      "url": "https://raw.githubusercontent.com/openfootball/italy/master/2026-27/1-seriea.txt",
+      "file": "/home/user/openfootball/italy/2026-27/1-seriea.txt",
+      "righe": 566
+    },
+    "EN1": {
+      "url": "https://raw.githubusercontent.com/openfootball/england/master/2026-27/1-premierleague.txt",
+      "file": "/home/user/openfootball/england/2026-27/1-premierleague.txt",
+      "righe": 558
+    },
+    "EN2": {
+      "url": "https://raw.githubusercontent.com/openfootball/england/master/2026-27/2-championship.txt",
+      "file": "/home/user/openfootball/england/2026-27/2-championship.txt",
+      "righe": 785
+    },
+    "DE1": {
+      "url": "https://raw.githubusercontent.com/openfootball/deutschland/master/2026-27/1-bundesliga.txt",
+      "file": "/home/user/openfootball/deutschland/2026-27/1-bundesliga.txt",
+      "righe": 456
+    },
+    "ES1": {
+      "url": "https://raw.githubusercontent.com/openfootball/espana/master/2026-27/1-liga.txt",
+      "file": "/home/user/openfootball/espana/2026-27/1-liga.txt",
+      "righe": 568
+    },
+    "FR1": {
+      "url": "https://raw.githubusercontent.com/openfootball/europe/master/france/2026-27_fr1.txt",
+      "file": "/home/user/openfootball/france/2026-27/1-ligue1.txt",
+      "righe": 479
+    },
+    "PT1": {
+      "url": "https://raw.githubusercontent.com/openfootball/europe/master/portugal/2026-27_pt1.txt",
+      "file": "/home/user/openfootball/portugal/2026-27/1-liga.txt",
+      "righe": 484
+    }
+  },
+  "assenti": [
+    "IT2",
+    "DE2",
+    "ES2",
+    "FR2",
+    "UCL",
+    "UEL",
+    "UECL"
+  ]
+}

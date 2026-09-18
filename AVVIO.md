@@ -1,11 +1,17 @@
 # Cosa devi fare
 
-Due cose. La prima richiede dieci minuti al computer, la seconda cinque minuti
-sul sito di Goldbet. Poi mi mandi due file e proseguo io.
+> **Dal telefono?** Leggi [MOBILE.md](MOBILE.md): c'e' anche un modo per non
+> fare niente e lasciare tutto a me.
+>
+> **La tabella bonus l'ho gia' raccolta io** per sette bookmaker (vedi
+> `data/bonus_bookmaker.json` ed esegui `examples/confronta_bonus.py`). I dati
+> vengono da siti di comparazione, non dai regolamenti ufficiali: il passo 1 qui
+> sotto serve a sostituirli con quelli veri del tuo conto, ed e' utile ma non
+> piu' urgente.
 
 ---
 
-## 1. Compila la tabella bonus
+## 1. Compila la tabella bonus (facoltativo ora)
 
 Apri **`data/bonus_goldbet.json`** e sostituisci i numeri con quelli veri del
 tuo conto.

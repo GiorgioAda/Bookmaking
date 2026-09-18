@@ -75,11 +75,16 @@ class WalkForward:
     def __init__(self, config: FitConfig | None = None,
                  refit_every_days: int = 7,
                  min_train_matches: int = 200,
-                 burn_in_days: int = 365) -> None:
+                 burn_in_days: int = 365,
+                 max_history_days: int | None = None) -> None:
         self.config = config or FitConfig()
         self.refit_every_days = refit_every_days
         self.min_train_matches = min_train_matches
         self.burn_in_days = burn_in_days
+        # Con decadimento xi=0.0025 una partita di quattro anni fa pesa il 2.6%
+        # di una di oggi: tenerla nella stima cambia poco il risultato e molto
+        # il tempo di calcolo. La finestra taglia quella coda.
+        self.max_history_days = max_history_days
 
     def run(self, matches: list[Match], verbose: bool = False) -> WalkForwardResult:
         played = sorted((m for m in matches if m.played), key=lambda m: m.kickoff)
@@ -106,7 +111,13 @@ class WalkForward:
                      or (day - fitted_on).days >= self.refit_every_days)
             )
             if needs_refit:
-                fit = engine.fit(history, reference_day=day)
+                train = history
+                if self.max_history_days is not None:
+                    limite = day - timedelta(days=self.max_history_days)
+                    train = [m for m in history if m.day >= limite]
+                    if len(train) < self.min_train_matches:
+                        train = history
+                fit = engine.fit(train, reference_day=day)
                 fitted_on = day
                 result.n_fits += 1
                 if verbose:
