@@ -530,13 +530,13 @@ body.conbarra{padding-bottom:76px}
           <option value="0.07">7% — mercati secondari</option>
         </select></div>
     </div>
-    <p class="note">I dati dei bonus vengono da una comparazione pubblica
-    (bonusmultipla.com, rilevazione dichiarata luglio 2026), <b>non dai regolamenti
-    ufficiali</b>. Di ogni promozione sono noti solo i due estremi — la percentuale
-    di partenza e il massimo — perché gli scaglioni in mezzo non li pubblica
-    nessuno: l'app li interpola e li marca con <span class="num">~</span>.
-    Verificali sul tuo conto prima di giocarci sopra, o meglio ancora riporta qui
-    sotto il bonus vero quando il banco te lo mostra su una schedina.</p>
+    <p class="note">I bonus vengono da una comparazione pubblica, <b>non dai
+    regolamenti ufficiali</b>. <span class="perche" data-perche="Fonte
+    bonusmultipla.com, rilevazione dichiarata luglio 2026. Di ogni promozione sono
+    noti solo i due estremi, la percentuale di partenza e il massimo, perché gli
+    scaglioni in mezzo non li pubblica nessuno: l'app li interpola e li marca con
+    la tilde. Riporta il bonus vero quando il banco te lo mostra su una schedina e
+    la curva si corregge su quello.">perché</span></p>
   </div>
   <div class="panel"><div class="eyebrow">Offerto contro necessario</div>
     <div class="tbl-scroll"><table id="bonusTable"></table></div></div>
@@ -585,16 +585,15 @@ body.conbarra{padding-bottom:76px}
   </div>
   <div class="panel">
     <div class="eyebrow">Da dove vengono le quote</div>
-    <div class="kv" style="border:0;padding:0"><label style="display:flex;
+    <div class="kv" style="border:0;padding:0"><label for="fVere" style="display:flex;
       align-items:center;gap:8px;margin:0;font-size:13px;color:var(--ink)">
       <input type="checkbox" id="fVere" style="width:18px;height:18px;
-      accent-color:var(--accent)"> <b>solo quote vere</b></label><span></span></div>
-    <p class="note">Acceso, in schedina entrano soltanto prezzi che un banco ha
-    davvero esposto: quelli del palinsesto scaricato dal fornitore e quelli che hai
-    letto sul conto e scritto tu. Gli esiti senza prezzo restano fuori dalla ricerca
-    invece di entrarci con la quota equa meno un margine, che nessuno paga. Spento,
-    l'app riempie i buchi da sola e la quota finale della schedina è una stima
-    travestita da numero.</p>
+      accent-color:var(--accent)"> <b>solo quote vere</b></label><span><span
+      class="perche" data-perche="Acceso, in schedina entrano soltanto prezzi che un
+      banco ha davvero esposto: quelli del palinsesto scaricato e quelli che hai letto
+      sul conto e scritto tu. Spento, l'app riempie i buchi con la quota equa meno un
+      margine tipico, e la quota finale della schedina diventa una stima travestita
+      da numero.">perché</span></span></div>
     <div id="vereBox"></div>
   </div>
   <div class="panel">
@@ -602,11 +601,12 @@ body.conbarra{padding-bottom:76px}
     <div><label for="fW">Peso del modello rispetto alle quote</label>
       <input type="range" id="fW" min="0" max="100" step="5" value="0" style="padding:0">
       <div class="kv" style="border:0;padding-top:6px"><span id="wLabel"></span></div></div>
-    <p class="note">Misurato su <b>33.300 partite</b> in walk-forward: ogni punto di
-    peso dato al modello <b>peggiora</b> la previsione, in modo monotono. L'errore
-    minimo (RPS 0,2029) è a peso zero, cioè quote pure; a peso pieno sale a 0,2082.
-    Il modello vede solo gol e date, il mercato vede anche formazioni e infortuni.
-    Il cursore resta perché la scelta è tua, ma il default è quello che i dati indicano.</p>
+    <p class="note">Su <b>33.300 partite</b> ogni punto di peso dato al modello
+    <b>peggiora</b> la previsione: il default è zero. <span class="perche"
+    data-perche="Misurato in walk-forward, in modo monotono. L'errore minimo
+    (RPS 0,2029) è a peso zero, cioè quote pure; a peso pieno sale a 0,2082. Il
+    modello vede solo gol e date, il mercato vede anche formazioni e infortuni. Il
+    cursore resta perché la scelta è tua.">perché</span></p>
   </div>
   <div class="panel"><div class="eyebrow">Andamento</div><div id="statsBox"></div></div>
   <div class="panel">
@@ -628,12 +628,12 @@ body.conbarra{padding-bottom:76px}
     <div class="row-btn" style="margin-top:0">
       <button class="btn" id="btnRisultati">Aggiorna risultati</button></div>
     <div id="risEsito"></div>
-    <p class="note">È una chiamata per competizione coinvolta, quindi consuma
-    crediti: falla a partite finite, non di continuo. Se una gamba risulta
-    rimborsata (handicap che finisce in parità) la quota reale non è più quella
-    registrata, e la giocata resta aperta perché tu la chiuda a mano: scrivere
-    un profitto sbagliato proprio nel registro che serve a misurare gli errori
-    sarebbe il posto peggiore dove farlo.</p>
+    <p class="note">Una chiamata per competizione, quindi consuma crediti: falla a
+    partite finite. <span class="perche" data-perche="Se una gamba risulta
+    rimborsata, per esempio un handicap che finisce in parità, la quota reale non è
+    più quella registrata: la giocata resta aperta perché tu la chiuda a mano.
+    Scrivere un profitto sbagliato proprio nel registro che serve a misurare gli
+    errori sarebbe il posto peggiore dove farlo.">perché</span></p>
   </div>
   <div class="panel"><div class="eyebrow">Giocate</div>
     <p class="lede" style="margin-bottom:10px">Tocca una giocata per vedere
@@ -2660,9 +2660,10 @@ function renderAuto(){
     '> scarica anche gli handicap asiatici'+
     '</label><span></span></div>'+
     '<p class="note" style="margin-top:6px">Un credito in pi\u00f9 per chiamata. '+
-    'Gli handicap sono l\u2019unico mercato oltre a 1X2 e Over/Under che questo '+
-    'fornitore espone nello scarico per campionato: doppia chance e Goal/NoGoal '+
-    'stanno altrove, e hanno il loro pulsante qui sotto.</p>'+
+    '<span class="perche" data-perche="Gli handicap sono l\u2019unico mercato '+
+    'oltre a 1X2 e Over/Under che questo fornitore espone nello scarico per '+
+    'campionato. Doppia chance e Goal/NoGoal stanno altrove, e hanno il loro '+
+    'pulsante qui sotto.">perch\u00e9</span></p>'+
     pickerComp()+pickerBook(prov)+
     '<div class="row-btn"><button class="btn" id="btnVerifica">Verifica che funzioni</button>'+
     '<button class="btn ghost" id="btnAuto">Scarica da '+esc(f.nome)+
@@ -2670,13 +2671,12 @@ function renderAuto(){
     (prov==="oddsapi"?
       '<div class="kv" style="border:0;padding:12px 0 0"><span><b>Doppia chance, '+
       'Goal/NoGoal e le altre linee di gol</b></span><span></span></div>'+
-      '<p class="note" style="margin-top:0">Questi tre il fornitore non li mette '+
-      'nello scarico per campionato: chiederglieli l\u00ec fa fallire tutta la '+
-      'chiamata con un 422, e non arriva nemmeno l\u20191X2. Stanno su un endpoint '+
-      'che risponde <b>una partita alla volta</b> e costa tre crediti a partita, '+
-      'quindi si prendono solo per quelle che hai spuntato nella lista qui sopra. '+
-      '\u00c8 anche il momento giusto: le spunti quando sai gi\u00e0 su quali '+
-      'vuoi giocare.</p>'+
+      '<p class="note" style="margin-top:0">Tre crediti a partita, solo per quelle '+
+      'che hai spuntato. <span class="perche" data-perche="Questi tre mercati il '+
+      'fornitore non li mette nello scarico per campionato: chiederglieli l\u00ec '+
+      'fa fallire tutta la chiamata con un errore 422, e non arriva nemmeno '+
+      'l\u20191X2. Stanno su un endpoint che risponde una partita alla volta, '+
+      'quindi si prendono solo per le partite spuntate.">perch\u00e9</span></p>'+
       '<div class="row-btn"><button class="btn ghost" id="btnExtra">Mercati '+
       'extra sulle partite scelte ('+state.scelte.length+')</button></div>':'')+
     '<div id="autoEsito"></div>'+
@@ -3752,12 +3752,15 @@ function renderBookPicker(){
         '</span></div>':'')+
       (b.cashout?'<div class="kv"><span>Cash out</span><span>chiudere tutta la '+
         'schedina fa decadere il bonus</span></div>':'')+
-      (b.nota?'<p class="note">'+esc(b.nota)+'</p>':'')+
-      (b.sottoSoglia==null&&!b.ufficiale?'<p class="note"><b>Attenzione:</b> se una '+
-        'gamba sta sotto la quota minima, su alcuni operatori il bonus non si '+
-        'riduce, sparisce. Per '+esc(nomeBook(state.book))+' la fonte non lo dice: '+
-        'l\u2019app calcola il caso favorevole (gamba esclusa, bonus salvo), che '+
-        '\u00e8 il pi\u00f9 generoso dei due.</p>':'');
+      (b.nota?'<p class="note"><span class="perche" data-perche="'+esc(b.nota)+
+        '">com\u2019\u00e8 fatta questa promozione</span></p>':'')+
+      (b.sottoSoglia==null&&!b.ufficiale?'<p class="note"><b>Attenzione:</b> una '+
+        'gamba sotto la quota minima potrebbe far sparire tutto il bonus. '+
+        '<span class="perche" data-perche="Per '+esc(nomeBook(state.book))+' la '+
+        'fonte non dice cosa succede: su alcuni operatori la gamba viene solo '+
+        'esclusa dal conteggio, su altri annulla l\u2019intera maggiorazione. '+
+        'L\u2019app calcola il caso favorevole, che \u00e8 il pi\u00f9 generoso '+
+        'dei due.">perch\u00e9</span></p>':'');
     renderConfrontoBanchi();renderCfbTutti()}}
 
 /* La tabella comparativa fra operatori ha senso solo applicata alle gambe che
@@ -4676,18 +4679,20 @@ function bonusNellIntervallo(){
   for(var n=da;n<=a;n++){
     var b=bonusAt(n);
     if(b.v>0)voci.push(n+': <b class="num">+'+fmt(b.v,1)+'%'+(b.est?'~':'')+'</b>')}
+  var perche="Il bonus va a scalare sull\u2019obiettivo: la quota che scrivi \u00e8 "+
+    "quella finale, quindi con il bonus le gambe devono produrre di meno. Ogni "+
+    "gamba deve per\u00f2 stare sopra "+fmt(bk.quota_minima)+", altrimenti il "+
+    "bonus decade. Le percentuali con ~ sono interpolate fra due scaglioni noti, "+
+    "non lette da un regolamento.";
   if(!voci.length)
-    return'<p class="note" id="bonusNota" style="margin-top:8px">Fra '+da+' e '+a+' gambe '+
-      esc(nomeBook(state.book))+' <b>non d\u00e0 bonus</b>: ne servono almeno '+
-      bk.gambe_minime+'. La quota che chiedi la devono fare tutta le selezioni.</p>';
-  return'<p class="note" id="bonusNota" style="margin-top:8px">Bonus di '+
-    esc(nomeBook(state.book))+
-    ' nell\u2019intervallo scelto \u2014 '+voci.join(' \u00b7 ')+
-    '. Va <b>a scalare sull\u2019obiettivo</b>: la quota che scrivi \u00e8 quella '+
-    'finale, quindi con il bonus le gambe devono produrre di meno. Ogni gamba deve '+
-    'per\u00f2 stare sopra <b class="num">'+fmt(bk.quota_minima)+'</b>, altrimenti '+
-    'il bonus decade. Le percentuali con <span class="num">~</span> sono interpolate, '+
-    'non lette da un regolamento.</p>';}
+    return'<p class="note" id="bonusNota" style="margin-top:8px">Fra '+da+' e '+a+
+      ' gambe '+esc(nomeBook(state.book))+' <b>non d\u00e0 bonus</b>: ne servono '+
+      'almeno '+bk.gambe_minime+'. <span class="perche" data-perche="'+esc(perche)+
+      '">perch\u00e9</span></p>';
+  return'<p class="note" id="bonusNota" style="margin-top:8px">Bonus '+
+    esc(nomeBook(state.book))+' \u2014 '+voci.join(' \u00b7 ')+
+    ' \u00b7 gambe sopra <b class="num">'+fmt(bk.quota_minima)+'</b> '+
+    '<span class="perche" data-perche="'+esc(perche)+'">perch\u00e9</span></p>';}
 
 /* I due numeri che comandano la scheda stanno in un posto solo. Prima ogni
    pannello aveva i suoi, e la stessa schedina rispondeva a due obiettivi
@@ -4698,6 +4703,19 @@ function obiettivo(){
 function importo(){
   var el=document.getElementById("fStake");
   return(el&&parseFloat(el.value))||2}
+
+/* Una riga di spunta: la casella, quattro parole, e la spiegazione lunga dietro
+   "perche'". Il pannello aveva tre caselle e tre paragrafi, e i paragrafi erano
+   piu' lunghi di tutto il resto della scheda messo insieme: chi sa gia' cosa fa
+   l'interruttore deve poterlo trovare senza rileggerlo ogni volta. */
+function spunta(id,acceso,testo,perche,coda){
+  return'<div class="kv" style="border:0;padding:7px 0 0"><label for="'+id+'" '+
+    'style="display:flex;align-items:center;gap:8px;margin:0;font-size:13px;'+
+    'color:var(--ink)"><input type="checkbox" id="'+id+'" style="width:18px;'+
+    'height:18px;accent-color:var(--accent)"'+(acceso?" checked":"")+'> '+testo+
+    '</label><span>'+(coda||'')+
+    (perche?' <span class="perche" data-perche="'+esc(perche)+'">perch\u00e9</span>':'')+
+    '</span></div>'}
 
 function renderGen(){
   renderQuoteScelte();renderVere();
@@ -4749,42 +4767,27 @@ function renderGen(){
     '<input type="number" id="genN" step="1" min="1" max="10" value="'+
       (state.genN||6)+'" inputmode="numeric"></div></div>'+
     bonusNellIntervallo()+
-    '<div class="kv" style="border:0;padding:8px 0 0"><label style="display:flex;'+
-    'align-items:center;gap:8px;margin:0;font-size:13px;color:var(--ink)">'+
-    '<input type="checkbox" id="genVere" style="width:18px;height:18px;'+
-    'accent-color:var(--accent)"'+(state.soloReali?" checked":"")+
-    '> <b>solo quote vere</b></label><span></span></div>'+
-    '<p class="note" style="margin-top:6px">Con la spunta entrano in schedina '+
-    'soltanto prezzi che un banco ha davvero esposto: quelli del palinsesto '+
-    'scaricato dal fornitore, e quelli che hai letto tu sul conto e scritto qui. '+
-    'Gli esiti senza prezzo restano fuori dalla ricerca invece di arrivarci con '+
-    'una quota calcolata da noi \u2014 <b>la quota che vedi \u00e8 quella che '+
-    'ti pagano</b>. Togliendola l\u2019app riempie i buchi con la quota equa '+
-    'meno un margine tipico, che il banco non ha mai scritto da nessuna parte.</p>'+
-    '<div class="kv" style="border:0;padding:8px 0 0"><label style="display:flex;'+
-    'align-items:center;gap:8px;margin:0;font-size:13px;color:var(--ink)">'+
-    '<input type="checkbox" id="genReali" style="width:18px;height:18px;'+
-    'accent-color:var(--accent)"'+(state.genCombo===false?"":" checked")+
-    '> considera anche le combo</label><span></span></div>'+
-    '<p class="note" style="margin-top:6px">Le combo <b>nessun fornitore di quote '+
-    'le pubblica</b>: con "solo quote vere" acceso entrano solo quelle di cui hai '+
-    'scritto tu il prezzo, nella scheda della partita. Sono poche, ma sono vere.</p>'+
-    '<div class="kv" style="border:0;padding:8px 0 0"><label style="display:flex;'+
-    'align-items:center;gap:8px;margin:0;font-size:13px;color:var(--ink)">'+
-    '<input type="checkbox" id="genTutteQ" style="width:18px;height:18px;'+
-    'accent-color:var(--accent)"'+(state.tutteQuotate?" checked":"")+
-    '> <b>pesca anche dal resto del palinsesto</b></label><span class="num">'+
-    partiteCercabili().length+' partite</span></div>'+
-    '<p class="note" style="margin-top:6px">'+
-    (scelte.length?'Le <b>'+scelte.length+' partit'+(scelte.length===1?'a spuntata':
-      'e spuntate')+'</b> ci sono comunque, e ci sono <b>tutte</b>: sono un '+
-      'vincolo, non un suggerimento. Con la spunta, se servono altre gambe per '+
-      'arrivare alla quota, le pesco dal resto del palinsesto invece di '+
-      'rinunciare; senza, la schedina si fa solo con le tue.':
-     'Nessuna partita spuntata: con la spunta la ricerca guarda ogni partita di '+
-     'cui abbiamo almeno una quota e non ancora iniziata, tutti i mercati '+
-     'compresi. Pi\u00f9 materiale, probabilit\u00e0 pi\u00f9 alta a parit\u00e0 '+
-     'di vincita.')+'</p>'+
+    spunta("genVere",state.soloReali,"<b>solo quote vere</b>",
+      "Entrano in schedina soltanto prezzi che un banco ha davvero esposto: "+
+      "quelli del palinsesto scaricato e quelli che hai letto sul conto e "+
+      "scritto qui. Gli esiti senza prezzo restano fuori dalla ricerca invece "+
+      "di arrivarci con una quota calcolata da noi, che il banco non ha mai "+
+      "scritto da nessuna parte.")+
+    spunta("genReali",state.genCombo!==false,"considera anche le combo",
+      "Le combo non le pubblica nessun fornitore di quote. Con \u201csolo "+
+      "quote vere\u201d acceso entrano solo quelle di cui hai scritto tu il "+
+      "prezzo, aprendo la partita. Sono poche, ma sono vere.")+
+    spunta("genTutteQ",state.tutteQuotate,
+      "<b>pesca anche dal resto del palinsesto</b>",
+      scelte.length?
+        "Le partite che hai spuntato ci sono comunque, e ci sono tutte: sono "+
+        "un vincolo, non un suggerimento. Con la spunta, se servono altre "+
+        "gambe per arrivare alla quota, le pesco dal resto del palinsesto "+
+        "invece di rinunciare.":
+        "La ricerca guarda ogni partita di cui abbiamo almeno una quota e non "+
+        "ancora iniziata, tutti i mercati compresi. Pi\u00f9 materiale, "+
+        "probabilit\u00e0 pi\u00f9 alta a parit\u00e0 di vincita.",
+      '<span class="num">'+partiteCercabili().length+' partite</span>')+
     '<div class="row-btn"><button class="btn" id="btnGen">Cerca le pi\u00f9 plausibili</button>'+
     '<button class="btn ghost" id="btnGenClear">Deseleziona tutto</button></div>'+
     '<div id="genEsito"></div>';
@@ -6329,9 +6332,16 @@ function showTab(n){
 /* Il "perche'" in linea: un clic mostra la spiegazione lunga sotto la riga.
    Le frasi c'erano gia' tutte, ma lette in fila facevano tre paragrafi di
    premessa sopra l'elenco delle partite. */
+var perche_n=0;
 document.addEventListener("click",function(e){
   var t=e.target;
   if(!t||!t.classList||!t.classList.contains("perche"))return;
+  /* I pannelli ridisegnati creano "perche'" nuovi, che a differenza di quelli
+     presenti all'avvio non hanno un id: senza, il secondo clic non trova la
+     spiegazione da chiudere e ne aggiunge un'altra sotto. */
+  if(!t.id){t.id="perche-d"+(perche_n++);
+    t.setAttribute("role","button");t.setAttribute("tabindex","0");
+    t.setAttribute("aria-expanded","false")}
   var gia=document.getElementById(t.id+"-txt");
   if(gia){gia.parentNode.removeChild(gia);t.setAttribute("aria-expanded","false");return}
   /* La spiegazione va messa dopo il paragrafo, non dentro: un <p> dentro un <p>
@@ -6468,19 +6478,18 @@ function renderVere(){
     '<div class="kv"><span>Scritte da te</span><span>'+mano+'</span></div>'+
     '<div class="kv"><span>Senza prezzo di nessun banco</span><span>'+(tot-veri)+
     '</span></div>'+
-    (veri?'<p class="note">La ricerca con <b>solo quote vere</b> lavora su <b>'+
+    (veri?'<p class="note">Con <b>solo quote vere</b> la ricerca lavora su <b>'+
       veri+'</b> selezioni, <b class="num">'+(veri/scelte.length).toFixed(1)+
-      '</b> per partita. Le altre sono quasi tutte combo, che nessun fornitore di '+
-      'quote pubblica: quelle restano tue da scrivere a mano, una alla volta, '+
-      'aprendo la partita.</p>'+
+      '</b> per partita. <span class="perche" data-perche="Le selezioni senza '+
+      'prezzo sono quasi tutte combo, che nessun fornitore di quote pubblica: '+
+      'quelle restano tue da scrivere a mano, aprendo la partita.">perch\u00e9 '+
+      'non tutte</span></p>'+
       (altro&&!banco?'<div class="warn"><b>Nessun prezzo viene da '+
-        esc(nomeBook(state.book))+'.</b> Il fornitore di quote copre i banchi che '+
-        'copre, e il tuo non \u00e8 fra quelli: le quote qui sono vere ma di altri '+
-        'bookmaker, e sul tuo conto saranno diverse. La <b>Tipica</b> \u2014 il '+
-        'prezzo di mezzo fra i banchi disponibili \u2014 \u00e8 la stima pi\u00f9 '+
-        'onesta di quello che troverai, ma resta una stima: quando ricopi la '+
-        'schedina, scrivi le quote vere gamba per gamba e i conti si rifanno su '+
-        'quelle.</div>':''):
+        esc(nomeBook(state.book))+'</b>: il fornitore copre altri banchi. Quando '+
+        'ricopi la schedina, scrivi le quote vere gamba per gamba. '+
+        '<span class="perche" data-perche="La Tipica, il prezzo di mezzo fra i '+
+        'banchi disponibili, e\u0300 la stima pi\u00f9 onesta di quello che '+
+        'troverai sul tuo conto, ma resta una stima.">perch\u00e9</span></div>':''):
      '<div class="warn">Nessuna selezione ha un prezzo vero: con <b>solo quote '+
       'vere</b> acceso la ricerca non pu\u00f2 restituire niente. Scarica le quote '+
       'da <b>Partite \u2192 Quote automatiche</b>, oppure aprile una partita e '+
