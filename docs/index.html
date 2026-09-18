@@ -1130,6 +1130,12 @@ var state={legs:[],log:[],weekly:30,bankroll:1200,margin:0.04,minLeg:1.25,
      ma il modulo delle quote vuole tutto il mercato completo per accettarli,
      e di una selezione sola la quota la sai, delle altre no. */
   soloReali:true,mano:{},
+  /* tutteQuotate: cercare in tutto il palinsesto e non solo nelle partite
+     spuntate. Con sei partite scelte la combinazione piu' probabile che arriva
+     a quota e' la migliore fra poche decine di migliaia; con tutte quelle
+     quotate e' la migliore fra molti ordini di grandezza in piu', e a parita'
+     di vincita la probabilita' che ne esce e' piu' alta. */
+  tutteQuotate:false,
   /* esclusi: gli esiti che hai gia' visto proporre e non vuoi. Senza questo,
      "non mi piacciono" non aveva risposta: la ricerca e' deterministica, e a
      parita' di quote e partite ridarebbe per sempre la stessa schedina. */
@@ -1190,30 +1196,93 @@ function trovaPartita(id){var a=tutteLePartite();
    ad avere poche gambe. */
 var PASSO=0.01;   // risoluzione della quota in scala logaritmica
 
-function candidatiPartita(p){
-  var out=[],matr=null;
-  var g=golImpliciti(p);
-  if(g)matr=g.matrice;
-  else{var mod=modelProbs(p.casa,p.ospiti,p.div);
-    if(mod)matr=scoreMatrix(mod.lam,mod.mu,DATI.rho)}
-  if(!matr)return out;
-  var margStim=state.margin;
+/* Da dove viene la probabilita' di una selezione. Finora usciva sempre dalla
+   matrice dei risultati, che la pagina ricava dall'1X2 e, quando c'e',
+   dall'Over/Under 2.5: un modello di gol, coerente ma indiretto. Se pero' il
+   palinsesto quota quel mercato per conto suo — doppia chance, Goal/NoGoal,
+   un'altra linea di gol, un handicap — quel prezzo contiene informazione che
+   la matrice non ha, e ripulito del margine e' la stima migliore che abbiamo.
+   Su 33.300 partite il peso ottimo del modello contro le quote e' zero: fra
+   una probabilita' dedotta e una letta dal mercato, vince il mercato.
+   La matrice resta per tutto il resto, cioe' per i mercati che nessuno quota. */
+function probMercatoOMatrice(p,mkt,matr){
+  var a=analizzaMercato(p,mkt.id);
+  if(a&&a.mercato){
+    if(mkt.id==="1X2"&&state.w>0){
+      var mod=modelProbs(p.casa,p.ospiti,p.div);
+      if(mod)return{probs:blend(mod.probs,a.mercato,state.w),fonte:"mercato"}}
+    return{probs:a.mercato,fonte:"mercato"}}
+  /* matr e' una funzione, non la matrice: chiamarla e' il momento in cui la
+     partita viene davvero prezzata, e succede solo qui. */
+  var m=typeof matr==="function"?matr():matr;
+  return m?{probs:probsMercato(m,mkt),fonte:"matrice"}:null}
+
+/* Con la ricerca su tutto il palinsesto questa funzione viene chiamata settanta
+   volte, e ogni volta prezza trecento combo percorrendo la matrice dei
+   risultati: ventiduemila candidati in tutto, di cui novecento con un prezzo
+   vero. Il resto veniva costruito per essere buttato dal filtro subito dopo,
+   1,3 secondi su computer e parecchi di piu' su un telefono. Con soloVeri il
+   prezzo si guarda PRIMA della probabilita', e quello che verrebbe scartato non
+   si calcola nemmeno. */
+var CAND_CACHE={},CAND_VER=0;
+function invalidaCandidati(){CAND_VER++;CAND_CACHE={};GOL_CACHE={}}
+function candidatiPartita(p,soloVeri){
+  /* Normalizzato all'ingresso: passata a .map() questa funzione riceverebbe
+     l'indice come secondo argomento, e mezzo palinsesto uscirebbe filtrato per
+     sbaglio. */
+  soloVeri=!!soloVeri;
+  var ck=p.id+"|"+(soloVeri?1:0);
+  if(CAND_CACHE[ck])return CAND_CACHE[ck];
+  var out=candidatiCalcola(p,soloVeri);
+  CAND_CACHE[ck]=out;return out}
+
+function candidatiCalcola(p,soloVeri){
+  var out=[],matrC,margStim=state.margin;
+  /* La matrice dei risultati si calcola solo se qualcuno la chiede. Quando il
+     palinsesto quota gia' il mercato, la probabilita' esce dalle sue quote e la
+     matrice non serve: calcolarla comunque costava quindici millesimi per
+     partita, cioe' un secondo su settanta, per un numero che poi non veniva
+     usato. */
+  function matr(){
+    if(matrC===undefined){
+      matrC=null;
+      var g=golImpliciti(p);
+      if(g)matrC=g.matrice;
+      else{var mod=modelProbs(p.casa,p.ospiti,p.div);
+        if(mod)matrC=scoreMatrix(mod.lam,mod.mu,DATI.rho)}}
+    return matrC}
 
   MERCATI.forEach(function(mkt){
-    var pr=probsMercato(matr,mkt);
+    /* Prima i prezzi: un mercato che nessuno quota, con soloVeri acceso, non
+       produce candidati, e quindi non vale la pena prezzarlo. */
+    var prezzi={},qualcuno=false;
+    mkt.sel.forEach(function(sel){
+      var rr=prezzoVero(p,mkt.id,sel);
+      prezzi[sel]=rr;if(rr)qualcuno=true});
+    if(soloVeri&&!qualcuno)return;
+    var pp=probMercatoOMatrice(p,mkt,matr);
+    if(!pp)return;
+    var pr=pp.probs;
     mkt.sel.forEach(function(sel){
       var prob=pr[sel];
       if(!(prob>0.03&&prob<0.97))return;
-      var rr=prezzoVero(p,mkt.id,sel);
+      var rr=prezzi[sel];
+      if(soloVeri&&!rr)return;
       out.push({partita:p,tipo:"mkt",mkt:mkt.id,sel:sel,
         nome:mkt.nome+": "+sel,prob:prob,banco:rr?rr.book:null,
         price:rr?rr.price:(1/prob)/(1+margStim),
+        probFonte:pp.fonte,
         fonte:rr?rr.fonte:"stima",stimato:!rr})})});
 
   COMBO.forEach(function(cb){
-    var prob=probComboRimb(matr,cb);
-    if(!(prob>0.03&&prob<0.97))return;
+    /* Il prezzo prima della probabilita': senza prezzo la combo non entra
+       comunque, e prezzarla costa un giro completo della matrice. */
     var rc=prezzoVero(p,cb.id,cb.nome,true);
+    if(soloVeri&&!rc)return;
+    var m=matr();
+    if(!m)return;
+    var prob=probComboRimb(m,cb);
+    if(!(prob>0.03&&prob<0.97))return;
     out.push({partita:p,tipo:"combo",mkt:cb.id,sel:cb.nome,
       nome:cb.nome,prob:prob,gruppo:cb.gruppo,banco:rc?rc.book:null,
       // le combo portano margini piu' larghi dei mercati principali
@@ -1230,7 +1299,7 @@ function candidatiPartita(p){
    troppo scartare diventa un vicolo cieco senza uscita. */
 function legaEsclusi(e){
   function rifai(){
-    var sc=state.scelte.map(trovaPartita).filter(Boolean);
+    var sc=partiteCercabili();
     state.genTutte=false;
     state.gen=generaSchedina(sc,state.genQ||obiettivo(),Math.min(10,state.genN||6),
       state.soloReali,state.genMin||1,state.genCombo===false);
@@ -1258,6 +1327,20 @@ function chipEsclusi(){
     '<button class="btn ghost sm" id="btnRimettiTutti">Rimetti tutti gli esiti '+
     'scartati</button></div>'}
 
+/* Le partite su cui cercare. Spuntarle serve a dire "voglio giocare queste";
+   ma quando quello che chiedi e' la giocata piu' probabile che paga X, la
+   scelta delle partite e' parte del problema, non un vincolo che ti dai. Con
+   l'interruttore acceso entrano tutte quelle di cui abbiamo almeno una quota. */
+function partiteCercabili(){
+  if(!state.tutteQuotate)return state.scelte.map(trovaPartita).filter(Boolean);
+  var ora=Date.now();
+  return tutteLePartite().filter(function(p){
+    if(!mercatiConQuote(p).length)return false;
+    /* Una partita gia' iniziata non si gioca piu': tenerla dentro gonfia la
+       probabilita' con selezioni che nessun banco accetta. */
+    var t=Date.parse(p.quando);
+    return !isFinite(t)||t>ora})}
+
 function chiaveEsito(pid,mkt,sel){return pid+"|"+mkt+"|"+sel}
 function salvaEsclusi(){lsSet("qv2.esclusi",state.esclusi)}
 function escludiEsito(pid,mkt,sel,nome){
@@ -1270,7 +1353,8 @@ function generaSchedina(partite,obiettivo,maxGambe,soloReali,minGambe,senzaCombo
      pubblica nessun fornitore, quindi togliere le une toglieva quasi sempre
      anche gli altri: per caso, non per costruzione. Il risultato era che chi
      voleva le combo si ritrovava dentro anche le quote inventate. */
-  var gruppi=partite.map(candidatiPartita).map(function(g){
+  var gruppi=partite.map(function(p){return candidatiPartita(p,!!soloReali)})
+    .map(function(g){
       return g.filter(function(c){
         if(soloReali&&c.stimato)return false;
         if(senzaCombo&&c.tipo==="combo")return false;
@@ -1550,7 +1634,18 @@ function analizzaMercato(p,mktId,escludi){
 /* I gol attesi impliciti nelle quote principali permettono di prezzare tutti i
    mercati secondari in modo coerente. Serve l'1X2; l'Over/Under 2.5, se c'e',
    stringe molto la stima perche' fissa il totale dei gol oltre alla differenza. */
+/* I gol impliciti sono un adattamento numerico, quindici millesimi di secondo a
+   partita: trascurabile una volta, un secondo pieno quando la ricerca guarda
+   tutto il palinsesto, e su un telefono diversi secondi di pagina ferma. Sono
+   una funzione pura delle quote della partita, quindi si calcolano una volta e
+   si rifanno solo quando le quote cambiano. */
+var GOL_CACHE={};
 function golImpliciti(p){
+  if(GOL_CACHE.hasOwnProperty(p.id))return GOL_CACHE[p.id];
+  var g=golCalcola(p);
+  GOL_CACHE[p.id]=g;return g}
+
+function golCalcola(p){
   var a=analizzaMercato(p,"1X2");
   if(!a||!a.mercato)return null;
   var t={"1":a.mercato["1"],"X":a.mercato["X"],"2":a.mercato["2"]};
@@ -4126,7 +4221,9 @@ function renderVicine(p){
   if(!matr){box.innerHTML='<p class="note">Servono le quote 1X2 per stimare i mercati.</p>';return}
   var cand=[];
   MERCATI.forEach(function(mkt){
-    var pr=probsMercato(matr,mkt);
+    var pp=probMercatoOMatrice(p,mkt,matr);
+    if(!pp)return;
+    var pr=pp.probs;
     mkt.sel.forEach(function(sel){
       var prob=pr[sel];if(!(prob>0.02&&prob<0.98))return;
       var rr=prezzoVero(p,mkt.id,sel);
@@ -4591,23 +4688,26 @@ function renderGen(){
      nasce a cinque gambe, una per partita. Finche' non tocchi i due campi
      restano agganciati alla selezione; appena li tocchi comandano loro, e
      smettono di cambiarti sotto le mani cio' che avevi impostato. */
-  if(!state.genTocco&&scelte.length){
+  if(!state.genTocco&&scelte.length&&!state.tutteQuotate){
     state.genMin=Math.min(10,scelte.length);
     state.genN=Math.min(10,scelte.length)}
-  if(!scelte.length){
+  if(!scelte.length&&!state.tutteQuotate){
     box.innerHTML='<p class="lede" style="margin:0">Spunta le partite che ti '+
       'interessano nella scheda <b>Partite</b> \u2014 la casella a sinistra di ogni '+
       'riga \u2014 e in fondo allo schermo comparir\u00e0 il pulsante che porta qui. '+
       'Poi in questa scheda vedi <b>tutte le loro quote a confronto</b> e cerco fra '+
       'mercati e combo la giocata pi\u00f9 sicura che arriva alla quota che vuoi.</p>';
     return}
-  var h='<p class="lede" style="margin-bottom:10px">'+scelte.length+' partit'+
-    (scelte.length===1?'a scelta':'e scelte')+' \u00b7 banco <b>'+
+  var h='<p class="lede" style="margin-bottom:10px">'+
+    (state.tutteQuotate?'<b>'+partiteCercabili().length+' partite quotate</b> '+
+      '(tutto il palinsesto)':scelte.length+' partit'+
+      (scelte.length===1?'a scelta':'e scelte'))+' \u00b7 banco <b>'+
     esc(nomeBook(state.book))+'</b> (per il bonus) \u00b7 prezzi <b>'+
     esc(RIFERIMENTI[state.rif].nome)+'</b></p>'+
     '<div class="grid g2">'+
     '<div><label for="genM">Gambe minime'+
-      (state.genTocco?' <button class="chip" id="genAuto" style="padding:1px 5px;'+
+      (state.tutteQuotate?'':
+       state.genTocco?' <button class="chip" id="genAuto" style="padding:1px 5px;'+
         'font-size:9px;vertical-align:middle">auto</button>':
         ' <span style="color:var(--accent);font-size:9.5px">= partite scelte</span>')+
       '</label>'+
@@ -4637,6 +4737,19 @@ function renderGen(){
     '<p class="note" style="margin-top:6px">Le combo <b>nessun fornitore di quote '+
     'le pubblica</b>: con "solo quote vere" acceso entrano solo quelle di cui hai '+
     'scritto tu il prezzo, nella scheda della partita. Sono poche, ma sono vere.</p>'+
+    '<div class="kv" style="border:0;padding:8px 0 0"><label style="display:flex;'+
+    'align-items:center;gap:8px;margin:0;font-size:13px;color:var(--ink)">'+
+    '<input type="checkbox" id="genTutteQ" style="width:18px;height:18px;'+
+    'accent-color:var(--accent)"'+(state.tutteQuotate?" checked":"")+
+    '> <b>cerca in tutto il palinsesto</b></label><span class="num">'+
+    partiteCercabili().length+' partite</span></div>'+
+    '<p class="note" style="margin-top:6px">Spuntare le partite serve a dire '+
+    '\u201cvoglio giocare queste\u201d. Ma se quello che chiedi \u00e8 la giocata '+
+    '<b>pi\u00f9 probabile</b> che paga quanto hai scritto, quali partite usare '+
+    '\u00e8 parte del problema, non un vincolo da darsi: con la spunta la ricerca '+
+    'guarda ogni partita di cui abbiamo almeno una quota e non ancora iniziata, '+
+    'tutti i mercati compresi. Pi\u00f9 materiale, probabilit\u00e0 pi\u00f9 alta '+
+    'a parit\u00e0 di vincita.</p>'+
     '<div class="row-btn"><button class="btn" id="btnGen">Cerca le pi\u00f9 plausibili</button>'+
     '<button class="btn ghost" id="btnGenClear">Deseleziona tutto</button></div>'+
     '<div id="genEsito"></div>';
@@ -4659,6 +4772,9 @@ function renderGen(){
   var ga=document.getElementById("genAuto");
   if(ga)ga.addEventListener("click",function(){
     state.genTocco=false;renderGen()});
+  var gt=document.getElementById("genTutteQ");
+  if(gt)gt.addEventListener("change",function(){
+    state.tutteQuotate=this.checked;salvaImp();state.gen=null;renderGen()});
   document.getElementById("btnGenClear").addEventListener("click",function(){
     state.scelte=[];lsSet("qv2.scelte",state.scelte);state.gen=null;
     renderGen();renderLista();renderSelBar()});
@@ -4672,10 +4788,11 @@ function renderGen(){
     state.genStake=importo();
     state.genCombo=document.getElementById("genReali").checked;
     state.soloReali=document.getElementById("genVere").checked;
+    state.tutteQuotate=document.getElementById("genTutteQ").checked;
     salvaImp();
     state.genTutte=false;
     var t=Date.now();
-    state.gen=generaSchedina(scelte,state.genQ,Math.min(10,state.genN),
+    state.gen=generaSchedina(partiteCercabili(),state.genQ,Math.min(10,state.genN),
       state.soloReali,state.genMin,state.genCombo===false);
     state.genMs=Date.now()-t;
     mostraGen()});
@@ -4870,12 +4987,38 @@ function mostraGen(){
     'probabilit\u00e0, non per numero di gambe, e <b>non pagano uguale</b>: '+
     'ognuna arriva almeno all\u2019obiettivo, chi pi\u00f9 e chi meno. Per '+
     'confrontarle a parit\u00e0 guarda la vincita accanto alla probabilit\u00e0.</p>';
-  t+=levaObiettivo(stake,r.prob);
+  /* "Dove sta la leva" rifa' la ricerca a cinque obiettivi diversi. Su sei
+     partite sono cinque decimi di secondo e si calcola subito; su tutto il
+     palinsesto e' un secondo pieno su computer, parecchi su un telefono, e
+     arriva dopo la risposta che avevi chiesto. Sopra una certa ampiezza si
+     calcola quando lo chiedi tu. */
+  var ampia=partiteCercabili().length>12;
+  t+=ampia?'<div class="row-btn" style="margin-top:14px">'+
+    '<button class="btn ghost sm" id="btnLeva">Dove sta davvero la leva: '+
+    'confronta cinque obiettivi</button></div><div id="levaBox"></div>':
+    levaObiettivo(stake,r.prob);
   e.innerHTML=t;
+  function legaLeva(){
+    Array.prototype.forEach.call(e.querySelectorAll("[data-leva]"),function(tr){
+      function vai(){vaiAObiettivo(parseFloat(tr.getAttribute("data-leva")))}
+      tr.addEventListener("click",vai);
+      tr.addEventListener("keydown",function(ev){
+        if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();vai()}})})}
+  var bl=document.getElementById("btnLeva");
+  if(bl)bl.addEventListener("click",function(){
+    bl.disabled=true;bl.textContent="Calcolo\u2026";
+    /* Un giro di rendering prima di bloccare il filo: senza, il pulsante resta
+       com'era finche' il calcolo non e' finito, e sembra che non abbia fatto
+       niente. */
+    setTimeout(function(){
+      var box=document.getElementById("levaBox");
+      if(box)box.innerHTML=levaObiettivo(stake,r.prob);
+      bl.parentNode.removeChild(bl);
+      legaLeva()},30)});
   /* Rifare la ricerca dopo aver scartato qualcosa: stesse partite, stesso
      obiettivo, un pezzo di scelta in meno. */
   function rifai(){
-    var sc=state.scelte.map(trovaPartita).filter(Boolean);
+    var sc=partiteCercabili();
     state.genTutte=false;
     var t0=Date.now();
     state.gen=generaSchedina(sc,state.genQ||obiettivo(),Math.min(10,state.genN||6),
@@ -4894,11 +5037,7 @@ function mostraGen(){
       escludiEsito(k[0],k[1],k.slice(2).join("|"),b.getAttribute("data-non"));
       rifai()})});
   legaEsclusi(e);
-  Array.prototype.forEach.call(e.querySelectorAll("[data-leva]"),function(tr){
-    tr.addEventListener("click",function(){
-      vaiAObiettivo(parseFloat(tr.getAttribute("data-leva")))});
-    tr.addEventListener("keydown",function(ev){
-      if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();tr.click()}})});
+  legaLeva();
   var bt=document.getElementById("btnGenTutte");
   if(bt)bt.addEventListener("click",function(){state.genTutte=true;mostraGen()});
   document.getElementById("btnGenUse").addEventListener("click",function(){
@@ -4914,7 +5053,7 @@ function mostraGen(){
    partite a obiettivi diversi e si mostra il risultato: sono i tuoi dati, non
    una massima. */
 function levaObiettivo(stake,probAttuale){
-  var scelte=state.scelte.map(trovaPartita).filter(Boolean);
+  var scelte=partiteCercabili();
   if(scelte.length<2)return"";
   var q=state.genQ||5,vis={},righe=[];
   [0.5,0.7,1,1.5,2].forEach(function(k){
@@ -4953,7 +5092,7 @@ function levaObiettivo(stake,probAttuale){
    i due numeri devono sempre dire la stessa cosa, altrimenti la schedina che
    vedi e quella che il campo descrive divergono senza che tu te ne accorga. */
 function vaiAObiettivo(t){
-  var scelte=state.scelte.map(trovaPartita).filter(Boolean);
+  var scelte=partiteCercabili();
   if(!scelte.length)return;
   var f=document.getElementById("fTarget");
   if(f)f.value=t;
@@ -6052,13 +6191,18 @@ function renderBudget(){
 /* ---- persistenza ---- */
 function lsGet(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
-function salvaQuote(){lsSet("qv2.quote",state.quote);
+function salvaQuote(){invalidaCandidati();lsSet("qv2.quote",state.quote);
   if(db)db.doc("quote/correnti").set({v:state.quote}).catch(function(){})}
-function salvaMano(){lsSet("qv2.mano",state.mano);
+function salvaMano(){invalidaCandidati();lsSet("qv2.mano",state.mano);
   if(db)db.doc("quote/mano").set({v:state.mano}).catch(function(){})}
 function salvaImp(){var s={weekly:state.weekly,bankroll:state.bankroll,
   margin:state.margin,minLeg:state.minLeg,w:state.w,book:state.book,
-  provider:state.provider,rif:state.rif,soloReali:state.soloReali};
+  provider:state.provider,rif:state.rif,soloReali:state.soloReali,
+  tutteQuotate:state.tutteQuotate};
+  /* Riferimento di prezzo, peso del modello, margine e banco cambiano i
+     candidati: la cache che li contiene non puo' sopravvivere a un cambio di
+     impostazioni. */
+  invalidaCandidati();
   lsSet("qv2.imp",s);if(db)db.doc("impostazioni/mie").set(s).catch(function(){})}
 function salvaGiocata(g){lsSet("qv2.log",state.log);
   if(db)db.doc("giocate/"+g.id).set(g).catch(function(){})}
@@ -6317,6 +6461,7 @@ function etichettaPeso(){
     document.getElementById("fMargin").value=String(state.margin);
     document.getElementById("fW").value=Math.round(state.w*100)}
   if(imp)state.soloReali=imp.soloReali!==false;
+  if(imp)state.tutteQuotate=!!imp.tutteQuotate;
   state.log=lsGet("qv2.log",[]);
   state.quote=lsGet("qv2.quote",{});
   state.mano=lsGet("qv2.mano",{})||{};
