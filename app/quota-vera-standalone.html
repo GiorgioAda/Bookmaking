@@ -1451,12 +1451,26 @@ function prezzoRif(p,mktId,sel){
    Il prezzo battuto a mano viene prima di quello scaricato perche' arriva dal
    banco su cui giochi davvero, mentre il palinsesto porta i banchi che il
    fornitore copre, che spesso non comprendono il tuo. */
-var FONTI={api:{t:"palinsesto",c:"ok",
-    d:"prezzo preso dal palinsesto scaricato dal fornitore di quote"},
+/* "Palinsesto" diceva che il prezzo e' vero, e lo e'. Non diceva di CHI, e
+   quella e' la differenza che conta quando ricopi la schedina: il fornitore di
+   quote copre i banchi che copre, e Goldbet non e' quasi mai fra quelli. Cosi'
+   una gamba marcata "palinsesto" poteva essere il prezzo di un banco inglese,
+   mostrato senza riserve come la quota della tua giocata, e sul conto usciva un
+   numero diverso. Adesso le fonti sono quattro e si distingue il tuo banco
+   dagli altri, che e' la sola cosa che il ricopiare mette alla prova. */
+var FONTI={banco:{t:"tuo banco",c:"ok",
+    d:"prezzo esposto proprio dal banco su cui giochi"},
   mano:{t:"tuo",c:"ok",d:"prezzo che hai letto sul tuo conto e scritto qui"},
+  altro:{t:"altro banco",c:"",
+    d:"prezzo vero, ma di un altro bookmaker: sul tuo conto sar\u00e0 diverso, "+
+      "di solito di poco, a volte di parecchio"},
+  api:{t:"palinsesto",c:"ok",
+    d:"prezzo preso dal palinsesto scaricato dal fornitore di quote"},
   stima:{t:"stimata",c:"no",
     d:"nessun banco espone questo prezzo: \u00e8 la quota equa del modello meno "+
       "un margine tipico, cio\u00e8 una congettura nostra"}};
+/* Vero ma non tuo: e' la categoria su cui il conto della schedina si rompe. */
+function fonteAltrui(f){return f==="altro"}
 function fonteTag(f){
   var v=FONTI[f||"stima"];
   return' <span class="pill '+v.c+'" title="'+esc(v.d)+'">'+v.t+'</span>'}
@@ -1475,7 +1489,10 @@ function prezzoVero(p,mktId,sel,combo){
     var c=prezzoCombo(p,mktId);
     return c!=null?{price:c,book:nomeBook(state.book),fonte:"mano"}:null}
   var rr=prezzoRif(p,mktId,sel);
-  return rr?{price:rr.price,book:rr.book,fonte:rr.auto?"api":"mano"}:null}
+  if(!rr)return null;
+  var mioBanco=String(rr.book||"").toLowerCase()===String(state.book).toLowerCase();
+  return{price:rr.price,book:rr.book,
+    fonte:mioBanco?(rr.auto?"banco":"mano"):"altro"}}
 
 /* Le combo sono vendute come esito singolo: non esiste il complementare,
    quindi non c'e' margine da togliere e il prezzo si confronta direttamente
@@ -4180,8 +4197,9 @@ function renderVicine(p){
       '</td><td>'+pct(c.prob)+'</td><td><button class="btn ghost sm" data-vic="'+i+'">Aggiungi</button></td></tr>'});
   box.innerHTML=t+'</tbody></table></div>'+nota()+
     (state.soloReali?'<p class="note">Tutte le quote qui sopra vengono da un '+
-      'banco: quelle marcate <b>palinsesto</b> dal fornitore che hai scaricato, '+
-      'quelle marcate <b>tuo</b> da te.</p>':
+      'banco, ma non tutte dal tuo: <b>tuo banco</b> e <b>tuo</b> sono prezzi di '+
+      esc(nomeBook(state.book))+', <b>altro banco</b> \u00e8 un prezzo vero di un '+
+      'altro bookmaker, che sul tuo conto sar\u00e0 diverso.</p>':
       '<p class="note">Le quote con <span class="num">~</span> sono stimate: non le hai '+
       'inserite e nessun banco le espone. Controllale sul bookmaker prima di giocare.</p>');
   Array.prototype.forEach.call(box.querySelectorAll("[data-vic]"),function(b){
@@ -5065,9 +5083,10 @@ function renderSchedina(){
       '<div class="leg-s">'+esc(l.etichetta||'')+' \u00b7 quota <b class="num">'+fmt(l.price)+'</b> da '+esc(l.book||"\u2014")+
       fonteTag(l.fonte)+
       ' · <span class="num">'+pct(l.p)+'</span> · EV <b class="num">'+sgn(ev)+'</b></div>'+
-      (l.stimato?'<div class="leg-s" style="margin-top:5px;display:flex;'+
+      (l.stimato||fonteAltrui(l.fonte)?'<div class="leg-s" style="margin-top:5px;display:flex;'+
         'align-items:center;gap:6px;flex-wrap:wrap">'+
-        '<label for="lgq-'+i+'" style="margin:0;font-size:11px">Quota vera su '+
+        '<label for="lgq-'+i+'" style="margin:0;font-size:11px">'+
+        (l.stimato?'Quota vera su ':'Quota di ')+
         esc(nomeBook(state.book))+'</label>'+
         '<input type="number" id="lgq-'+i+'" data-vera="'+i+'" step="0.01" '+
         'min="1.01" inputmode="decimal" placeholder="'+fmt(l.price)+'" '+
@@ -5098,16 +5117,30 @@ function renderSchedina(){
     'leggi su '+esc(nomeBook(state.book))+' e tutto il resto si ricalcola sul '+
     'numero giusto.</div>';
   else if(state.legs.length){
-    var perFonte={api:0,mano:0,ignota:0};
+    var perFonte={banco:0,mano:0,altro:0,api:0,ignota:0};
     state.legs.forEach(function(l){
-      perFonte[l.fonte==="api"?"api":(l.fonte==="mano"?"mano":"ignota")]++});
+      perFonte[perFonte[l.fonte]!==undefined?l.fonte:"ignota"]++});
     var voci=[];
-    if(perFonte.api)voci.push(perFonte.api+' dal palinsesto scaricato');
+    if(perFonte.banco)voci.push(perFonte.banco+' dal palinsesto di '+
+      esc(nomeBook(state.book)));
     if(perFonte.mano)voci.push(perFonte.mano+' scritt'+(perFonte.mano===1?'a':'e')+' da te');
+    if(perFonte.altro)voci.push(perFonte.altro+' da altri banchi');
+    if(perFonte.api)voci.push(perFonte.api+' dal palinsesto scaricato');
     if(perFonte.ignota)voci.push(perFonte.ignota+' da prima che l\u2019app tenesse '+
       'traccia della provenienza');
-    warn+='<div class="verdict pos" style="padding:9px 11px;margin-bottom:10px">'+
-      '<p style="margin:0">Nessuna quota stimata: '+voci.join(", ")+'.</p></div>'}
+    /* Il verdetto verde "nessuna quota stimata" era vero e insufficiente: le
+       quote possono essere tutte vere e nessuna essere quella che ti pagheranno.
+       Quando vengono da altri banchi la riga diventa un avviso, non una
+       rassicurazione. */
+    warn+=(perFonte.altro?
+      '<div class="warn"><b>'+perFonte.altro+' gamb'+(perFonte.altro===1?'a ha':'e hanno')+
+      ' il prezzo di un altro bookmaker.</b> Sono quote vere, ma non di '+
+      esc(nomeBook(state.book))+': il fornitore copre i banchi che copre, e il tuo '+
+      'quasi mai. Sul tuo conto saranno diverse, di solito di poco. Finch\u00e9 non '+
+      'scrivi quelle vere qui sopra, quota totale, vincita e valore atteso sono '+
+      'calcolati su prezzi che non sono i tuoi.</div>':
+      '<div class="verdict pos" style="padding:9px 11px;margin-bottom:10px">'+
+      '<p style="margin:0">Nessuna quota stimata: '+voci.join(", ")+'.</p></div>')}
   if(state.legs.length>1){
     var sing=state.legs.reduce(function(a,l){return a+(stake/state.legs.length)*(l.p*l.price-1)},0);
     if(sing>stake*s.ev)warn+='<div class="warn">Giocate come singole le stesse selezioni '+
@@ -5214,6 +5247,10 @@ function renderSchedina(){
           ((mercatoById(l.mkt||"1X2")||{nome:""}).nome+" \u2192 "+l.sel))+
         "   quota "+fmt(l.price)+(l.stimato?"~":"")+"  ("+l.book+")"}).join("\n")+
     "\n\n"+state.legs.length+" gambe"+
+    (state.legs.filter(function(l){return fonteAltrui(l.fonte)}).length?
+      "\n\n! "+state.legs.filter(function(l){return fonteAltrui(l.fonte)}).length+
+      " quote qui sopra sono di altri bookmaker, non di "+nomeBook(state.book)+
+      ".\n  Sul tuo conto saranno diverse, quindi anche la quota totale.":"")+
     "\nquota totale "+fmt(ss.eff)+(ss.bonus>0?"  (bonus +"+fmt(ss.bonus,0)+"%)":"")+
     "\npuntata "+fmt(stake)+" \u20ac   vincita "+fmt(stake*ss.eff)+" \u20ac"+
     "\nprobabilit\u00e0 "+pct(ss.prob)+"   valore atteso "+sgn(ss.ev);
@@ -6225,16 +6262,21 @@ function renderVere(){
   if(!scelte.length){
     box.innerHTML='<p class="note">Spunta qualche partita per vedere quante delle '+
       'loro selezioni hanno un prezzo vero.</p>';return}
-  var tot=0,api=0,mano=0;
+  var tot=0,banco=0,mano=0,altro=0;
   scelte.forEach(function(p){
     candidatiPartita(p).forEach(function(c){
-      tot++;if(c.fonte==="api")api++;else if(c.fonte==="mano")mano++})});
+      tot++;
+      if(c.fonte==="banco")banco++;
+      else if(c.fonte==="mano")mano++;
+      else if(c.fonte==="altro"||c.fonte==="api")altro++})});
   if(!tot){box.innerHTML='<p class="note">Di queste partite non sappiamo prezzare '+
     'nulla: senza le quote 1X2 non parte nemmeno la matrice dei risultati.</p>';return}
-  var veri=api+mano;
+  var veri=banco+mano+altro,api=banco+altro;
   box.innerHTML='<div class="kv"><span>Selezioni prezzabili</span><span>'+tot+
     '</span></div>'+
-    '<div class="kv"><span>Dal palinsesto scaricato</span><span>'+api+'</span></div>'+
+    '<div class="kv"><span>Dal palinsesto di '+esc(nomeBook(state.book))+
+    '</span><span>'+banco+'</span></div>'+
+    '<div class="kv"><span>Da altri banchi</span><span>'+altro+'</span></div>'+
     '<div class="kv"><span>Scritte da te</span><span>'+mano+'</span></div>'+
     '<div class="kv"><span>Senza prezzo di nessun banco</span><span>'+(tot-veri)+
     '</span></div>'+
@@ -6242,9 +6284,15 @@ function renderVere(){
       veri+'</b> selezioni, <b class="num">'+(veri/scelte.length).toFixed(1)+
       '</b> per partita. Le altre sono quasi tutte combo, che nessun fornitore di '+
       'quote pubblica: quelle restano tue da scrivere a mano, una alla volta, '+
-      'aprendo la partita. Per allargare quelle scaricate c\u2019\u00e8 la '+
-      'spunta <i>chiedi anche doppia chance, Goal/NoGoal, le altre linee e gli '+
-      'handicap</i> in <b>Partite \u2192 Quote automatiche</b>.</p>':
+      'aprendo la partita.</p>'+
+      (altro&&!banco?'<div class="warn"><b>Nessun prezzo viene da '+
+        esc(nomeBook(state.book))+'.</b> Il fornitore di quote copre i banchi che '+
+        'copre, e il tuo non \u00e8 fra quelli: le quote qui sono vere ma di altri '+
+        'bookmaker, e sul tuo conto saranno diverse. La <b>Tipica</b> \u2014 il '+
+        'prezzo di mezzo fra i banchi disponibili \u2014 \u00e8 la stima pi\u00f9 '+
+        'onesta di quello che troverai, ma resta una stima: quando ricopi la '+
+        'schedina, scrivi le quote vere gamba per gamba e i conti si rifanno su '+
+        'quelle.</div>':''):
      '<div class="warn">Nessuna selezione ha un prezzo vero: con <b>solo quote '+
       'vere</b> acceso la ricerca non pu\u00f2 restituire niente. Scarica le quote '+
       'da <b>Partite \u2192 Quote automatiche</b>, oppure aprile una partita e '+
