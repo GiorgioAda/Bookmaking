@@ -1129,7 +1129,11 @@ var state={legs:[],log:[],weekly:30,bankroll:1200,margin:0.04,minLeg:1.25,
      selezione. Valgono quanto quelli scaricati — vengono dallo stesso banco —
      ma il modulo delle quote vuole tutto il mercato completo per accettarli,
      e di una selezione sola la quota la sai, delle altre no. */
-  soloReali:true,mano:{}};
+  soloReali:true,mano:{},
+  /* evt: da quale evento del fornitore viene ogni partita. Lo scarico per
+     campionato lo impara e basta; serve a chiedere, partita per partita, i
+     mercati che quell'endpoint non espone. */
+  evt:{}};
 /* Il bonus non e' una proprieta' della schedina ma del banco su cui la giochi:
    scaglioni, quota minima per gamba e numero minimo di eventi cambiano da un
    bookmaker all'altro. Per questo tutto qui sotto legge il banco selezionato. */
@@ -2478,19 +2482,28 @@ function renderAuto(){
     'align-items:center;gap:8px;margin:0;font-size:13px;color:var(--ink)">'+
     '<input type="checkbox" id="apiPiu" style="width:18px;height:18px;'+
     'accent-color:var(--accent)"'+(lsGet("qv2.apipiu",false)?" checked":"")+
-    '> chiedi anche doppia chance, Goal/NoGoal, le altre linee e gli handicap'+
+    '> scarica anche gli handicap asiatici'+
     '</label><span></span></div>'+
-    '<p class="note" style="margin-top:6px">È quello che serve per avere '+
-    '<b>quote vere anche fuori dall’1X2</b>: senza, di ogni partita il '+
-    'palinsesto porta cinque selezioni e tutto il resto resta una stima nostra. '+
-    'Costa però un credito per mercato: da due si passa a sei per chiamata, '+
-    'e i piani base del fornitore alcuni di questi mercati non li danno. Se la '+
-    'risposta torna con un errore, togli la spunta: i due principali arrivano '+
-    'comunque.</p>'+
+    '<p class="note" style="margin-top:6px">Un credito in pi\u00f9 per chiamata. '+
+    'Gli handicap sono l\u2019unico mercato oltre a 1X2 e Over/Under che questo '+
+    'fornitore espone nello scarico per campionato: doppia chance e Goal/NoGoal '+
+    'stanno altrove, e hanno il loro pulsante qui sotto.</p>'+
     pickerComp()+pickerBook(prov)+
     '<div class="row-btn"><button class="btn" id="btnVerifica">Verifica che funzioni</button>'+
     '<button class="btn ghost" id="btnAuto">Scarica da '+esc(f.nome)+
     '</button><button class="btn ghost" id="btnAutoTutti">Scarica da tutti</button></div>'+
+    (prov==="oddsapi"?
+      '<div class="kv" style="border:0;padding:12px 0 0"><span><b>Doppia chance, '+
+      'Goal/NoGoal e le altre linee di gol</b></span><span></span></div>'+
+      '<p class="note" style="margin-top:0">Questi tre il fornitore non li mette '+
+      'nello scarico per campionato: chiederglieli l\u00ec fa fallire tutta la '+
+      'chiamata con un 422, e non arriva nemmeno l\u20191X2. Stanno su un endpoint '+
+      'che risponde <b>una partita alla volta</b> e costa tre crediti a partita, '+
+      'quindi si prendono solo per quelle che hai spuntato nella lista qui sopra. '+
+      '\u00c8 anche il momento giusto: le spunti quando sai gi\u00e0 su quali '+
+      'vuoi giocare.</p>'+
+      '<div class="row-btn"><button class="btn ghost" id="btnExtra">Mercati '+
+      'extra sulle partite scelte ('+state.scelte.length+')</button></div>':'')+
     '<div id="autoEsito"></div>'+
     '<p class="note" style="margin-top:8px">Versione <b class="num">'+
     esc(DATI.versione||"?")+'</b>. Se non corrisponde a quella che ti ho detto, '+
@@ -2510,6 +2523,8 @@ function renderAuto(){
     '<p class="note">Ultima scaricata: <b class="num">'+esc(q.rimasti)+'</b> crediti rimasti.</p>';
   document.getElementById("btnAuto").addEventListener("click",function(){
     if(state.provider==="oddspapi")scaricaOddsPapi();else scaricaQuote()});
+  var bx=document.getElementById("btnExtra");
+  if(bx)bx.addEventListener("click",scaricaExtra);
   var vf=document.getElementById("btnVerifica");
   if(vf)vf.addEventListener("click",verificaFornitore);
   var tutti=document.getElementById("btnAutoTutti");
@@ -3181,6 +3196,94 @@ function altriMercati(cand,nome,markets,casa,osp){
         n+=scriviRiga(cand,id,nome,perLinea2[id])})}});
   return n}
 
+/* "Markets not supported by this endpoint: alternate_totals, btts,
+   double_chance" — il fornitore elenca proprio quelli che non gli vanno bene.
+   Leggerli dal messaggio invece di indovinarli tiene la cosa giusta anche se
+   domani cambia cosa e' permesso su quale piano. */
+function ricordaEvento(cand,id,sport){
+  state.evt[cand.id]={id:id,sport:sport,quando:Date.now()};
+  lsSet("qv2.evt",state.evt)}
+
+/* Doppia chance, Goal/NoGoal e le linee di gol diverse dalla 2.5 il fornitore
+   le tiene su un endpoint per singolo evento, e le fa pagare un credito per
+   mercato per partita. Chiederle per tutti i campionati vorrebbe dire centinaia
+   di crediti per quote che poi non usi: qui si chiedono solo per le partite che
+   hai spuntato, che sono quelle su cui stai davvero costruendo la schedina. */
+var EXTRA_EVENTO="btts,double_chance,alternate_totals";
+function scaricaExtra(){
+  var esito=document.getElementById("autoEsito");
+  var key=(document.getElementById("apiKey").value||"").trim();
+  var reg=document.getElementById("apiReg").value;
+  if(!key){esito.innerHTML='<div class="warn">Manca la chiave API.</div>';return}
+  var scelte=state.scelte.map(trovaPartita).filter(Boolean);
+  if(!scelte.length){esito.innerHTML='<div class="warn">Nessuna partita spuntata. '+
+    'Scegli nella lista qui sopra le partite che ti interessano: i mercati extra '+
+    'si chiedono una partita alla volta e costano, quindi si prendono solo per '+
+    'quelle.</div>';return}
+  var conId=scelte.filter(function(p){return state.evt[p.id]&&state.evt[p.id].id});
+  if(!conId.length){esito.innerHTML='<div class="warn">Di queste partite non so '+
+    'l\u2019identificativo presso il fornitore: arriva con lo scarico per '+
+    'campionato. Premi prima <b>Scarica da The Odds API</b>, poi torna qui.</div>';
+    return}
+  var senzaId=scelte.length-conId.length;
+  esito.innerHTML='<p class="note">Chiedo i mercati extra per '+conId.length+
+    ' partit'+(conId.length===1?'a':'e')+'\u2026</p>';
+  var nuove=0,problemi=[],vuote=0;
+  /* Una alla volta, in catena: il fornitore limita le chiamate ravvicinate, e
+     lanciarne venti insieme e' il modo piu' rapido per prendersi un 429. */
+  conId.reduce(function(catena,pp){
+    return catena.then(function(){
+      var e=state.evt[pp.id];
+      var u="https://api.the-odds-api.com/v4/sports/"+e.sport+"/events/"+
+        encodeURIComponent(e.id)+"/odds?regions="+encodeURIComponent(reg)+
+        "&markets="+EXTRA_EVENTO+"&oddsFormat=decimal&apiKey="+encodeURIComponent(key);
+      return fetch(u).then(function(r){
+        var rim=r.headers.get("x-requests-remaining"),us=r.headers.get("x-requests-used");
+        if(rim!=null)lsSet("qv2.quota.oddsapi",{rimasti:rim,usati:us||"?"});
+        if(!r.ok)return erroreHttp(r,pp.casa+" \u2013 "+pp.ospiti);
+        return r.text().then(function(t){
+          annota("oddsapi/evento/"+e.sport,r.status,t);
+          try{return JSON.parse(t)}
+          catch(err){throw new Error("risposta non in JSON")}})})
+      .then(function(ev){
+        var books=(ev&&ev.bookmakers)||[];
+        if(!books.length){vuote++;return}
+        imparaBook("oddsapi",books.map(function(b){return b.title||b.key}));
+        books.filter(function(b){
+          return bookAmmesso("oddsapi",b.title||b.key)}).forEach(function(bk){
+          nuove+=altriMercati(pp,bk.title||bk.key,bk.markets||[],
+            ev.home_team||pp.casa,ev.away_team||pp.ospiti)})})
+      .catch(function(err){
+        if(problemi.length<5)problemi.push(pp.casa+" \u2013 "+pp.ospiti+": "+err.message)})})
+  },Promise.resolve()).then(function(){
+    salvaQuote();renderLista();renderOccasioni();renderGen();
+    var h="";
+    if(nuove)h+='<div class="verdict pos" style="margin-top:10px"><h3>'+nuove+
+      ' quote extra scaricate</h3><p>Su '+conId.length+' partit'+
+      (conId.length===1?'a':'e')+' scelt'+(conId.length===1?'a':'e')+
+      '. Doppia chance, Goal/NoGoal e le altre linee di gol adesso sono prezzi '+
+      'veri, non stime.</p></div>';
+    else h+='<div class="warn">Nessuna quota extra arrivata. Se l\u2019errore '+
+      'parla di mercati non supportati, la tua chiave non comprende questi '+
+      'mercati: restano da scrivere a mano nella scheda della partita.</div>';
+    if(vuote)h+='<div class="warn">'+vuote+' partit'+(vuote===1?'a':'e')+
+      ' senza nessun bookmaker fra quelli che hai scelto.</div>';
+    if(senzaId)h+='<div class="warn">'+senzaId+' partit'+(senzaId===1?'a':'e')+
+      ' saltat'+(senzaId===1?'a':'e')+': non ho l\u2019identificativo del '+
+      'fornitore. Rifai prima lo scarico per campionato.</div>';
+    if(problemi.length)h+='<div class="warn"><b>Problemi:</b><br>'+
+      esc(problemi.join(" \u00b7 "))+'</div>';
+    var q=lsGet("qv2.quota.oddsapi",null);
+    if(q)h+='<p class="note">Restano <b class="num">'+esc(q.rimasti)+
+      '</b> crediti questo mese.</p>';
+    esito.innerHTML=h})}
+
+function mercatiRifiutati(msg){
+  var m=/markets?\s+not\s+supported[^:]*:\s*([a-z0-9_,\s]+)/i.exec(msg||"");
+  if(!m)return[];
+  return m[1].split(/[,\s]+/).map(function(x){return x.trim()})
+    .filter(function(x){return x&&/^[a-z0-9_]+$/.test(x)})}
+
 function scaricaQuote(){
   var esito=document.getElementById("autoEsito");
   var key=(document.getElementById("apiKey").value||"").trim();
@@ -3189,27 +3292,50 @@ function scaricaQuote(){
   var conOU=document.getElementById("apiOU").checked;
   var piu=(document.getElementById("apiPiu")||{}).checked;
   lsSet("qv2.apipiu",!!piu);
+  /* L'endpoint che porta tutti gli eventi di un campionato in una chiamata
+     sola espone solo i mercati "in evidenza": h2h, totals e spreads. Chiedergli
+     btts, double_chance o alternate_totals non fa arrivare meno roba, fa
+     fallire tutta la chiamata con un 422 — e con essa anche l'1X2 che ci
+     serviva. Quei tre stanno sull'endpoint per singolo evento, che ha il suo
+     pulsante qui sotto perche' costa un credito per partita per mercato. */
   var mercati=conOU?"h2h,totals":"h2h";
-  if(piu)mercati+=",btts,double_chance,alternate_totals,spreads";
+  if(piu)mercati+=",spreads";
   var divs=compScelte();
   if(!divs.length){esito.innerHTML='<div class="warn">Nessuna competizione '+
     'selezionata.</div>';return}
   esito.innerHTML='<p class="note">Scarico '+divs.length+' campionati…</p>';
-  var fatti=0,agganciate=0,nuoveQuote=0,problemi=[],rapporto=[];
+  var fatti=0,agganciate=0,nuoveQuote=0,problemi=[],avvisi=[],rapporto=[];
   divs.forEach(function(d){
-    var url="https://api.the-odds-api.com/v4/sports/"+SPORT_API[d]+
-      "/odds?regions="+encodeURIComponent(reg)+"&markets="+mercati+"&oddsFormat=decimal&apiKey="+
-      encodeURIComponent(key);
-    fetch(url).then(function(r){
-      // il credito residuo viaggia negli header: senza guardarlo il piano
-      // gratuito si esaurisce senza preavviso
-      var rim=r.headers.get("x-requests-remaining"),us=r.headers.get("x-requests-used");
-      if(rim!=null)lsSet("qv2.quota.oddsapi",{rimasti:rim,usati:us||"?"});
-      if(!r.ok)return erroreHttp(r,d);
-      return r.text().then(function(t){
-        annota("oddsapi/"+SPORT_API[d],r.status,t);
-        try{return JSON.parse(t)}
-        catch(e){throw new Error(d+": risposta non in JSON")}})}).then(function(dati){
+    /* Se il fornitore rifiuta dei mercati, il suo messaggio dice quali: si
+       tolgono e si riprova una volta sola, invece di restituire zero quote per
+       colpa di un mercato accessorio. Il piano della chiave cambia cosa e'
+       permesso, e non lo sappiamo in anticipo. */
+    function chiedi(mkts,riprovato){
+      var u="https://api.the-odds-api.com/v4/sports/"+SPORT_API[d]+
+        "/odds?regions="+encodeURIComponent(reg)+"&markets="+mkts+
+        "&oddsFormat=decimal&apiKey="+encodeURIComponent(key);
+      return fetch(u).then(function(r){
+        // il credito residuo viaggia negli header: senza guardarlo il piano
+        // gratuito si esaurisce senza preavviso
+        var rim=r.headers.get("x-requests-remaining"),us=r.headers.get("x-requests-used");
+        if(rim!=null)lsSet("qv2.quota.oddsapi",{rimasti:rim,usati:us||"?"});
+        if(!r.ok)return erroreHttp(r,d);
+        return r.text().then(function(t){
+          annota("oddsapi/"+SPORT_API[d],r.status,t);
+          try{return JSON.parse(t)}
+          catch(e){throw new Error(d+": risposta non in JSON")}})})
+      .catch(function(e){
+        var rif=mercatiRifiutati(e.message);
+        if(riprovato||!rif.length)throw e;
+        var resta=mkts.split(",").filter(function(m){return rif.indexOf(m)<0});
+        if(!resta.length)throw e;
+        /* Non e' un fallimento: la chiamata riesce, con un mercato in meno.
+           Metterlo fra i problemi faceva leggere "non riuscito" a chi invece
+           le quote le aveva appena ricevute. */
+        avvisi.push(d+": il fornitore non d\u00e0 "+rif.join(", ")+
+          " su questa chiave, scaricato il resto");
+        return chiedi(resta.join(","),true)})}
+    chiedi(mercati,false).then(function(dati){
       if(!Array.isArray(dati))throw new Error("risposta di forma inattesa");
       var rip={div:d,eventi:dati.length,agg:0,scartati:[],fuori:0,senzaBook:0};
       rapporto.push(rip);
@@ -3236,6 +3362,10 @@ function scaricaQuote(){
           if(!cand){rip.fuori++;return}
           rip.create=(rip.create||0)+1}
         agganciate++;rip.agg++;
+        /* L'identificativo che il fornitore da' all'evento serve per chiedere
+           i mercati che l'endevent-point per campionato non espone. Senza
+           questo, i mercati extra non si possono nemmeno chiedere. */
+        if(ev.id)ricordaEvento(cand,ev.id,SPORT_API[d]);
         if(!(ev.bookmakers||[]).length)rip.senzaBook++;
         // Prima si prendevano i primi quattro cosi' come arrivavano: sempre
         // gli stessi, e il banco su cui giochi poteva non comparire mai.
@@ -3290,6 +3420,8 @@ function scaricaQuote(){
         ' partite agganciate al calendario.'+
         (q2?' Restano <b class="num">'+esc(q2.rimasti)+'</b> crediti questo mese.':'')+
         '</p></div>';
+      if(avvisi.length)h+='<p class="note"><b>Mercati non disponibili su questa '+
+        'chiave:</b><br>'+esc(avvisi.join(" \u00b7 "))+'</p>';
       if(problemi.length)h+='<div class="warn">'+
         indizioChiave(problemi.join(" "),"oddsapi").replace(/^<br>/,"")+
         '<b>Non riuscito su '+problemi.length+
@@ -5911,6 +6043,7 @@ function etichettaPeso(){
   state.log=lsGet("qv2.log",[]);
   state.quote=lsGet("qv2.quote",{});
   state.mano=lsGet("qv2.mano",{})||{};
+  state.evt=lsGet("qv2.evt",{})||{};
   state.extra=lsGet("qv2.extra",[]);
   state.scelte=lsGet("qv2.scelte",[]);
   // La versione va mostrata anche accanto alle quote automatiche: e' li' che
