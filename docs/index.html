@@ -4722,17 +4722,19 @@ function renderGen(){
   renderQuoteScelte();renderVere();
   var box=document.getElementById("genBox");if(!box)return;
   var scelte=state.scelte.map(trovaPartita).filter(Boolean);
-  /* Le gambe seguono le partite scelte: se ne spunti cinque, la schedina
-     nasce a cinque gambe, una per partita. Finche' non tocchi i due campi
-     restano agganciati alla selezione; appena li tocchi comandano loro, e
-     smettono di cambiarti sotto le mani cio' che avevi impostato. */
+  /* Finche' non tocchi i due campi seguono le partite spuntate, minimo e
+     massimo insieme: ne spunti cinque, la schedina nasce a cinque gambe, una
+     per partita. Appena li tocchi comandano loro, e il pulsante "auto" li
+     riaggancia. */
   if(!state.genTocco&&scelte.length){
     state.genMin=Math.min(10,scelte.length);
-    state.genN=Math.max(state.genN||0,Math.min(10,scelte.length))}
-  /* Con quattro partite obbligatorie una schedina da due gambe non esiste: il
-     minimo lo alza la ricerca comunque, ma il campo deve dirlo prima. */
-  if(scelte.length&&(state.genMin||1)<Math.min(10,scelte.length))
-    state.genMin=Math.min(10,scelte.length);
+    state.genN=Math.min(10,scelte.length)}
+  /* Il minimo non puo' comunque scendere sotto le partite spuntate: sono
+     obbligatorie, e una schedina da due gambe con quattro partite dentro non
+     esiste. La ricerca lo imporrebbe lo stesso; il campo deve dirlo prima. */
+  var pavimento=Math.min(10,scelte.length);
+  if(scelte.length&&(state.genMin||1)<pavimento)state.genMin=pavimento;
+  if(scelte.length&&(state.genN||1)<state.genMin)state.genN=state.genMin;
   if(!scelte.length&&!state.tutteQuotate){
     box.innerHTML='<p class="lede" style="margin:0">Spunta le partite che ti '+
       'interessano nella scheda <b>Partite</b> \u2014 la casella a sinistra di ogni '+
@@ -4750,14 +4752,19 @@ function renderGen(){
     esc(RIFERIMENTI[state.rif].nome)+'</b></p>'+
     '<div class="grid g2">'+
     '<div><label for="genM">Gambe minime'+
-      (scelte.length?' <span style="color:var(--accent);font-size:9.5px">\u2265 '+
-        scelte.length+' spuntate</span>':
-       state.genTocco?' <button class="chip" id="genAuto" style="padding:1px 5px;'+
-        'font-size:9px;vertical-align:middle">auto</button>':'')+
+      (state.genTocco?' <button class="chip" id="genAuto" style="padding:1px 5px;'+
+        'font-size:9px;vertical-align:middle">auto</button>'+
+        (scelte.length?' <span style="color:var(--ink-faint);font-size:9.5px">'+
+          'min '+pavimento+'</span>':''):
+       scelte.length?' <span style="color:var(--accent);font-size:9.5px">'+
+        '= partite scelte</span>':'')+
       '</label>'+
     '<input type="number" id="genM" step="1" min="1" max="10" value="'+
       (state.genMin||1)+'" inputmode="numeric"></div>'+
-    '<div><label for="genN">Gambe al massimo</label>'+
+    '<div><label for="genN">Gambe al massimo'+
+      (scelte.length&&(state.genN||0)>scelte.length?
+        ' <span style="color:var(--accent);font-size:9.5px">+'+
+        ((state.genN||0)-scelte.length)+' pescate</span>':'')+'</label>'+
     '<input type="number" id="genN" step="1" min="1" max="10" value="'+
       (state.genN||6)+'" inputmode="numeric"></div></div>'+
     bonusNellIntervallo()+
