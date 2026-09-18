@@ -603,6 +603,20 @@ body.conbarra{padding-bottom:76px}
     Il budget settimanale resta come tetto di spesa.</p>
   </div>
   <div class="panel">
+    <div class="eyebrow">Da dove vengono le quote</div>
+    <div class="kv" style="border:0;padding:0"><label style="display:flex;
+      align-items:center;gap:8px;margin:0;font-size:13px;color:var(--ink)">
+      <input type="checkbox" id="fVere" style="width:18px;height:18px;
+      accent-color:var(--accent)"> <b>solo quote vere</b></label><span></span></div>
+    <p class="note">Acceso, in schedina entrano soltanto prezzi che un banco ha
+    davvero esposto: quelli del palinsesto scaricato dal fornitore e quelli che hai
+    letto sul conto e scritto tu. Gli esiti senza prezzo restano fuori dalla ricerca
+    invece di entrarci con la quota equa meno un margine, che nessuno paga. Spento,
+    l'app riempie i buchi da sola e la quota finale della schedina è una stima
+    travestita da numero.</p>
+    <div id="vereBox"></div>
+  </div>
+  <div class="panel">
     <div class="eyebrow">Quanto pesa il modello</div>
     <div><label for="fW">Peso del modello rispetto alle quote</label>
       <input type="range" id="fW" min="0" max="100" step="5" value="0" style="padding:0">
@@ -1106,7 +1120,16 @@ function modelProbs(casa,ospiti,div){
 var state={legs:[],log:[],weekly:30,bankroll:1200,margin:0.04,minLeg:1.25,
   w:0,quote:{},extra:[],aperta:null,filtro:"tutte",mkt:"1X2",book:"goldbet",
   rif:"tipica",mostra:"tutti",genStake:2,genCombo:true,genMin:1,genN:6,genQ:5,
-  scelte:[],gen:null,provider:"oddsapi"};
+  scelte:[],gen:null,provider:"oddsapi",
+  /* soloReali: nella schedina entrano solo prezzi che un banco ha davvero
+     esposto. Acceso di default, perche' una quota stimata da noi fa sembrare
+     solido un conto che non lo e': il banco quel numero non l'ha mai scritto,
+     e alla conferma della giocata la quota finale scende sotto l'obiettivo.
+     mano: i prezzi che hai letto sul tuo conto e battuto qui, selezione per
+     selezione. Valgono quanto quelli scaricati — vengono dallo stesso banco —
+     ma il modulo delle quote vuole tutto il mercato completo per accettarli,
+     e di una selezione sola la quota la sai, delle altre no. */
+  soloReali:true,mano:{}};
 /* Il bonus non e' una proprieta' della schedina ma del banco su cui la giochi:
    scaglioni, quota minima per gamba e numero minimo di eventi cambiano da un
    bookmaker all'altro. Per questo tutto qui sotto legge il banco selezionato. */
@@ -1173,28 +1196,38 @@ function candidatiPartita(p){
     mkt.sel.forEach(function(sel){
       var prob=pr[sel];
       if(!(prob>0.03&&prob<0.97))return;
-      var rr=prezzoRif(p,mkt.id,sel),reale=rr?rr.price:null;
+      var rr=prezzoVero(p,mkt.id,sel);
       out.push({partita:p,tipo:"mkt",mkt:mkt.id,sel:sel,
         nome:mkt.nome+": "+sel,prob:prob,banco:rr?rr.book:null,
-        price:reale!=null?reale:(1/prob)/(1+margStim),stimato:reale==null})})});
+        price:rr?rr.price:(1/prob)/(1+margStim),
+        fonte:rr?rr.fonte:"stima",stimato:!rr})})});
 
   COMBO.forEach(function(cb){
     var prob=probComboRimb(matr,cb);
     if(!(prob>0.03&&prob<0.97))return;
-    var reale=prezzoCombo(p,cb.id);
+    var rc=prezzoVero(p,cb.id,cb.nome,true);
     out.push({partita:p,tipo:"combo",mkt:cb.id,sel:cb.nome,
-      nome:cb.nome,prob:prob,gruppo:cb.gruppo,
+      nome:cb.nome,prob:prob,gruppo:cb.gruppo,banco:rc?rc.book:null,
       // le combo portano margini piu' larghi dei mercati principali
-      price:reale!=null?reale:(1/prob)/(1+margStim*1.8),stimato:reale==null})});
+      price:rc?rc.price:(1/prob)/(1+margStim*1.8),
+      fonte:rc?rc.fonte:"stima",stimato:!rc})});
   return out}
 
 /* Con soloReali si scartano le selezioni di cui non abbiamo il prezzo vero.
    Una quota stimata e' una nostra congettura: costruirci sopra una schedina
    produce un numero che sembra solido e non lo e', perche' il banco quella
    quota non l'ha mai esposta. */
-function generaSchedina(partite,obiettivo,maxGambe,soloReali,minGambe){
+function generaSchedina(partite,obiettivo,maxGambe,soloReali,minGambe,senzaCombo){
+  /* Due filtri distinti, che prima erano uno solo. "Niente combo" e "solo
+     prezzi veri" finivano nella stessa casella perche' le combo non le
+     pubblica nessun fornitore, quindi togliere le une toglieva quasi sempre
+     anche gli altri: per caso, non per costruzione. Il risultato era che chi
+     voleva le combo si ritrovava dentro anche le quote inventate. */
   var gruppi=partite.map(candidatiPartita).map(function(g){
-      return soloReali?g.filter(function(c){return !c.stimato}):g})
+      return g.filter(function(c){
+        if(soloReali&&c.stimato)return false;
+        if(senzaCombo&&c.tipo==="combo")return false;
+        return true})})
     .filter(function(g){return g.length});
   if(!gruppi.length)return null;
   var risultati={},qmin=bookCorrente().quota_minima;
@@ -1342,7 +1375,7 @@ function prezziDi(p,mktId,sel){
   var mkt=mercatoById(mktId),out=[];
   righeDi(p,mktId).forEach(function(r){
     if(valide(r,mkt)&&r.prezzi[sel]>1)
-      out.push({price:r.prezzi[sel],book:r.book||"\u2014"})});
+      out.push({price:r.prezzi[sel],book:r.book||"\u2014",auto:!!r.auto})});
   return out}
 
 function prezzoRif(p,mktId,sel){
@@ -1357,6 +1390,44 @@ function prezzoRif(p,mktId,sel){
   // Mediana. Con un numero pari di banchi si prende il piu' basso dei due
   // centrali: sovrastimare la quota che troverai e' l'errore che costa.
   return v[Math.floor((v.length-1)/2)]}
+
+/* Il prezzo vero di una selezione, con scritto da dove viene. Prima stava
+   sparso in quattro punti che rispondevano in modo leggermente diverso, e
+   "stimata" finiva per voler dire solo "il fornitore non copre questo
+   mercato". Qui la domanda e' una sola e la risposta ha sempre una fonte:
+
+     api   il prezzo sta nel palinsesto scaricato dal fornitore di quote
+     mano  l'hai letto sul tuo conto e battuto qui
+     null  non esiste, e qualunque numero al suo posto e' una nostra congettura
+
+   Il prezzo battuto a mano viene prima di quello scaricato perche' arriva dal
+   banco su cui giochi davvero, mentre il palinsesto porta i banchi che il
+   fornitore copre, che spesso non comprendono il tuo. */
+var FONTI={api:{t:"palinsesto",c:"ok",
+    d:"prezzo preso dal palinsesto scaricato dal fornitore di quote"},
+  mano:{t:"tuo",c:"ok",d:"prezzo che hai letto sul tuo conto e scritto qui"},
+  stima:{t:"stimata",c:"no",
+    d:"nessun banco espone questo prezzo: \u00e8 la quota equa del modello meno "+
+      "un margine tipico, cio\u00e8 una congettura nostra"}};
+function fonteTag(f){
+  var v=FONTI[f||"stima"];
+  return' <span class="pill '+v.c+'" title="'+esc(v.d)+'">'+v.t+'</span>'}
+function chiaveMano(pid,mktId,sel){return pid+"|"+mktId+"|"+sel}
+function prezzoMano(pid,mktId,sel){
+  var v=state.mano[chiaveMano(pid,mktId,sel)];
+  return v>1?+v:null}
+function setPrezzoMano(pid,mktId,sel,prezzo){
+  var k=chiaveMano(pid,mktId,sel);
+  if(prezzo>1)state.mano[k]=+prezzo;else delete state.mano[k];
+  salvaMano()}
+function prezzoVero(p,mktId,sel,combo){
+  var m=prezzoMano(p.id,mktId,combo?mktId:sel);
+  if(m!=null)return{price:m,book:nomeBook(state.book),fonte:"mano"};
+  if(combo){
+    var c=prezzoCombo(p,mktId);
+    return c!=null?{price:c,book:nomeBook(state.book),fonte:"mano"}:null}
+  var rr=prezzoRif(p,mktId,sel);
+  return rr?{price:rr.price,book:rr.book,fonte:rr.auto?"api":"mano"}:null}
 
 /* Le combo sono vendute come esito singolo: non esiste il complementare,
    quindi non c'e' margine da togliere e il prezzo si confronta direttamente
@@ -2403,6 +2474,19 @@ function renderAuto(){
     '</label><span></span></div>'+
     '<p class="note" style="margin-top:6px">L’Over/Under costa il doppio ma migliora '+
     'molto la stima dei gol attesi, e con essa tutte le combo.</p>'+
+    '<div class="kv" style="border:0;padding:8px 0 0"><label style="display:flex;'+
+    'align-items:center;gap:8px;margin:0;font-size:13px;color:var(--ink)">'+
+    '<input type="checkbox" id="apiPiu" style="width:18px;height:18px;'+
+    'accent-color:var(--accent)"'+(lsGet("qv2.apipiu",false)?" checked":"")+
+    '> chiedi anche doppia chance, Goal/NoGoal, le altre linee e gli handicap'+
+    '</label><span></span></div>'+
+    '<p class="note" style="margin-top:6px">È quello che serve per avere '+
+    '<b>quote vere anche fuori dall’1X2</b>: senza, di ogni partita il '+
+    'palinsesto porta cinque selezioni e tutto il resto resta una stima nostra. '+
+    'Costa però un credito per mercato: da due si passa a sei per chiamata, '+
+    'e i piani base del fornitore alcuni di questi mercati non li danno. Se la '+
+    'risposta torna con un errore, togli la spunta: i due principali arrivano '+
+    'comunque.</p>'+
     pickerComp()+pickerBook(prov)+
     '<div class="row-btn"><button class="btn" id="btnVerifica">Verifica che funzioni</button>'+
     '<button class="btn ghost" id="btnAuto">Scarica da '+esc(f.nome)+
@@ -2418,6 +2502,8 @@ function renderAuto(){
     lsSet("qv2.key."+prov,this.value.trim());gistSalvaChiavi()});
   var ck=document.getElementById("apiOU");
   if(ck)ck.addEventListener("change",function(){lsSet("qv2.apiou",this.checked)});
+  var ckp=document.getElementById("apiPiu");
+  if(ckp)ckp.addEventListener("change",function(){lsSet("qv2.apipiu",this.checked)});
   legaPickerBook(prov);legaPickerComp();
   var q=lsGet("qv2.quota."+prov,null);
   if(q)document.getElementById("autoEsito").innerHTML=
@@ -2470,12 +2556,12 @@ function applicaQuote(cand,nomeBook,pr,po){
   if(pr&&pr["1"]>1&&pr["X"]>1&&pr["2"]>1){
     var righe=righeDi(cand,"1X2").filter(function(r){
       return (r.book||"").toLowerCase()!==String(nomeBook).toLowerCase()});
-    righe.push({book:nomeBook,prezzi:pr});
+    righe.push({book:nomeBook,prezzi:pr,auto:true});
     setRighe(cand,"1X2",righe);n++}
   if(po&&po.Over>1&&po.Under>1){
     var ro=righeDi(cand,"OU2.5").filter(function(r){
       return (r.book||"").toLowerCase()!==String(nomeBook).toLowerCase()});
-    ro.push({book:nomeBook,prezzi:po});
+    ro.push({book:nomeBook,prezzi:po,auto:true});
     setRighe(cand,"OU2.5",ro);n++}
   return n}
 
@@ -3020,13 +3106,91 @@ function aggiornaDaWeb(auto){
         box.innerHTML=h})});
 }
 
+/* I mercati del fornitore che non siano 1X2 e Over/Under 2.5. La pagina ne
+   conosce tredici, il fornitore ne manda quanti la chiave ne permette, e i nomi
+   non coincidono: questa funzione fa la traduzione e basta. Quello che non sa
+   tradurre lo lascia stare, perche' un mercato mappato male e' peggio di un
+   mercato mancante — sembra un prezzo vero e non lo e'. */
+var LINEE_OU={0.5:"OU0.5",1.5:"OU1.5",2.5:"OU2.5",3.5:"OU3.5",4.5:"OU4.5"};
+var LINEE_AH={"-2":"AH-2","-1.5":"AH-1.5","-1":"AH-1","1":"AH1","1.5":"AH1.5"};
+function scriviRiga(cand,mktId,nome,prezzi){
+  var mkt=mercatoById(mktId);
+  if(!mkt)return 0;
+  for(var i=0;i<mkt.sel.length;i++)if(!(prezzi[mkt.sel[i]]>1))return 0;
+  var righe=righeDi(cand,mktId).filter(function(r){
+    return (r.book||"").toLowerCase()!==String(nome).toLowerCase()});
+  righe.push({book:nome,prezzi:prezzi,auto:true});
+  setRighe(cand,mktId,righe);return 1}
+
+function altriMercati(cand,nome,markets,casa,osp){
+  var n=0;
+  markets.forEach(function(m){
+    var k=(m.key||"").toLowerCase(),out=m.outcomes||[];
+    if(k==="btts"){
+      var g={};
+      out.forEach(function(o){
+        if(/^yes$/i.test(o.name))g.Goal=o.price;
+        else if(/^no$/i.test(o.name))g.NoGoal=o.price});
+      n+=scriviRiga(cand,"GG",nome,g);return}
+    if(k==="double_chance"){
+      /* Il fornitore scrive le doppie chance con i nomi delle squadre unite da
+         "or": "Brentford or Draw". Riconoscerle dalla squadra e non dalla
+         posizione evita di scambiare 1X con X2 quando l'ordine cambia. */
+      var d={};
+      out.forEach(function(o){
+        var t=String(o.name||"");
+        var haC=casa&&t.indexOf(casa)>=0,haO=osp&&t.indexOf(osp)>=0;
+        var haX=/draw|pareggio/i.test(t);
+        if(haC&&haO)d["12"]=o.price;
+        else if(haC&&haX)d["1X"]=o.price;
+        else if(haO&&haX)d["X2"]=o.price});
+      n+=scriviRiga(cand,"DC",nome,d);return}
+    if(k==="totals"||k==="alternate_totals"){
+      var perLinea={};
+      out.forEach(function(o){
+        var id=LINEE_OU[o.point];
+        // la 2.5 la scrive gia' chi ci chiama: riscriverla qui non cambia il
+        // prezzo ma gonfia il conteggio delle quote scaricate
+        if(!id||(k==="totals"&&id==="OU2.5"))return;
+        if(!perLinea[id])perLinea[id]={};
+        if(/over/i.test(o.name))perLinea[id].Over=o.price;
+        else if(/under/i.test(o.name))perLinea[id].Under=o.price});
+      Object.keys(perLinea).forEach(function(id){
+        n+=scriviRiga(cand,id,nome,perLinea[id])});return}
+    if(k==="spreads"||k==="alternate_spreads"){
+      /* Lo spread del fornitore e' riferito alla squadra nominata; i nostri
+         handicap sono riferiti alla casa. Una riga entra solo se le due meta'
+         combaciano, cioe' se la linea dell'ospite e' l'opposta di quella di
+         casa: quando il fornitore manda linee scompagnate non si inventa
+         niente, si lascia perdere quella linea. */
+      var perLinea2={};
+      out.forEach(function(o){
+        var t=String(o.name||""),pt=o.point;
+        if(pt==null)return;
+        var casaSua=casa&&t.indexOf(casa)>=0;
+        /* Il nostro hc sono i gol dati alla casa: "casa -1" e' hc -1, ed e'
+           esattamente il point che il fornitore attacca alla squadra di casa.
+           Sulla riga dell'ospite il segno va girato, perche' "ospiti +1" e' la
+           stessa linea vista dall'altro lato. */
+        var linea=casaSua?pt:-pt;
+        var id=LINEE_AH[String(linea)];
+        if(!id)return;
+        if(!perLinea2[id])perLinea2[id]={};
+        perLinea2[id][casaSua?"Casa":"Ospiti"]=o.price});
+      Object.keys(perLinea2).forEach(function(id){
+        n+=scriviRiga(cand,id,nome,perLinea2[id])})}});
+  return n}
+
 function scaricaQuote(){
   var esito=document.getElementById("autoEsito");
   var key=(document.getElementById("apiKey").value||"").trim();
   var reg=document.getElementById("apiReg").value;
   if(!key){esito.innerHTML='<div class="warn">Manca la chiave API.</div>';return}
   var conOU=document.getElementById("apiOU").checked;
+  var piu=(document.getElementById("apiPiu")||{}).checked;
+  lsSet("qv2.apipiu",!!piu);
   var mercati=conOU?"h2h,totals":"h2h";
+  if(piu)mercati+=",btts,double_chance,alternate_totals,spreads";
   var divs=compScelte();
   if(!divs.length){esito.innerHTML='<div class="warn">Nessuna competizione '+
     'selezionata.</div>';return}
@@ -3091,7 +3255,7 @@ function scaricaQuote(){
             if(pr["1"]>1&&pr["X"]>1&&pr["2"]>1){
               var righe=righeDi(cand,"1X2").filter(function(r){
                 return (r.book||"").toLowerCase()!==String(nome).toLowerCase()});
-              righe.push({book:nome,prezzi:pr});
+              righe.push({book:nome,prezzi:pr,auto:true});
               setRighe(cand,"1X2",righe);nuoveQuote++}}
           var tot=(bk.markets||[]).filter(function(x){return x.key==="totals"})[0];
           if(tot){
@@ -3105,8 +3269,14 @@ function scaricaQuote(){
             if(po.Over>1&&po.Under>1){
               var ro=righeDi(cand,"OU2.5").filter(function(r){
                 return (r.book||"").toLowerCase()!==String(nome).toLowerCase()});
-              ro.push({book:nome,prezzi:po});
-              setRighe(cand,"OU2.5",ro);nuoveQuote++}}})});
+              ro.push({book:nome,prezzi:po,auto:true});
+              setRighe(cand,"OU2.5",ro);nuoveQuote++}}
+          /* Le altre linee di Over/Under, la doppia chance, il Goal/NoGoal e gli
+             handicap: il fornitore li manda solo se glieli chiedi, e finche' non
+             glieli chiedevamo restavano stime nostre anche quando il banco li
+             quotava davvero. Adesso ogni mercato che arriva viene salvato con lo
+             stesso trattamento dei due principali. */
+          nuoveQuote+=altriMercati(cand,nome,bk.markets||[],casa,osp)})});
     }).catch(function(e){
       problemi.push(d+": "+e.message)
     }).then(function(){
@@ -3570,7 +3740,10 @@ function renderDettaglio(){
       var i=+el.getAttribute("data-i"),rr=righeDi(p,state.mkt);
       if(el.getAttribute("data-k")==="book")rr[i].book=el.value;
       else{if(!rr[i].prezzi)rr[i].prezzi={};
-        rr[i].prezzi[el.getAttribute("data-s")]=parseFloat(el.value)||""}
+        rr[i].prezzi[el.getAttribute("data-s")]=parseFloat(el.value)||"";
+        /* Toccata a mano non e' piu' quella del palinsesto scaricato: la
+           provenienza deve dire da dove viene il numero che c'e' adesso. */
+        rr[i].auto=false}
       salvaQuote();aggiornaCalcoli();renderOccasioni()})});
   Array.prototype.forEach.call(document.querySelectorAll("#bkBox [data-rm]"),function(b){
     b.addEventListener("click",function(){
@@ -3690,15 +3863,18 @@ function renderVicine(p){
     var pr=probsMercato(matr,mkt);
     mkt.sel.forEach(function(sel){
       var prob=pr[sel];if(!(prob>0.02&&prob<0.98))return;
-      var rr=prezzoRif(p,mkt.id,sel),reale=rr?rr.price:null;
+      var rr=prezzoVero(p,mkt.id,sel);
       cand.push({nome:mkt.nome+": "+sel,prob:prob,mkt:mkt.id,sel:sel,
         banco:rr?rr.book:null,
-        price:reale!=null?reale:(1/prob)/(1+state.margin),stimato:reale==null})})});
+        price:rr?rr.price:(1/prob)/(1+state.margin),
+        fonte:rr?rr.fonte:"stima",stimato:!rr})})});
   COMBO.forEach(function(cb){
     var prob=probComboRimb(matr,cb);if(!(prob>0.02&&prob<0.98))return;
-    var reale=prezzoCombo(p,cb.id);
+    var rc=prezzoVero(p,cb.id,cb.nome,true);
     cand.push({nome:cb.nome,prob:prob,mkt:cb.id,sel:cb.nome,combo:true,
-      price:reale!=null?reale:(1/prob)/(1+state.margin*1.8),stimato:reale==null})});
+      banco:rc?rc.book:null,
+      price:rc?rc.price:(1/prob)/(1+state.margin*1.8),
+      fonte:rc?rc.fonte:"stima",stimato:!rc})});
   // La quota voluta e' un minimo da raggiungere, non il centro di un intervallo.
   // Filtrare attorno al bersaglio e poi ordinare per probabilita' restituirebbe
   // sempre il bordo inferiore: si chiede 3.00 e si ottiene 2.10, cioe' proprio
@@ -3706,27 +3882,48 @@ function renderVicine(p){
   // il piu' probabile, che e' quello che spreca meno quota oltre il necessario.
   var dentro=cand.filter(function(c){
     return c.price>=target-1e-9&&c.price<=target*(1+tol)});
+  /* Con "solo quote vere" gli esiti senza prezzo esposto non si mostrano
+     nemmeno: offrirli e poi avvertire in fondo alla tabella e' un modo per far
+     entrare in schedina un numero che nessun banco paga. Quanti ne restano
+     fuori pero' va detto, altrimenti sembra che la partita non abbia esiti. */
+  var nascosti=0;
+  if(state.soloReali){
+    nascosti=dentro.filter(function(c){return c.stimato}).length;
+    dentro=dentro.filter(function(c){return !c.stimato})}
+  function nota(){
+    return nascosti?'<p class="note"><b>'+nascosti+' esit'+(nascosti===1?'o':'i')+
+      '</b> in questa fascia '+(nascosti===1?'\u00e8 nascosto':'sono nascosti')+
+      ': di quell'+(nascosti===1?'o':'i')+' nessun banco ci ha dato un prezzo, '+
+      'quindi la quota sarebbe una stima nostra. Scarica le quote dalla scheda '+
+      '<b>Partite</b>, oppure scrivi tu il prezzo che leggi sul conto qui sotto '+
+      'nelle quote del mercato.</p>':''}
   if(!dentro.length){
     box.innerHTML='<p class="note">Nessun esito di questa partita paga almeno '+
-      fmt(target)+' restando entro il margine scelto. Allarga il margine, abbassa '+
-      'l’obiettivo, oppure servirà più di una partita in schedina.</p>';return}
+      fmt(target)+' restando entro il margine scelto'+
+      (nascosti?' fra quelli di cui abbiamo il prezzo vero':'')+
+      '. Allarga il margine, abbassa '+
+      'l’obiettivo, oppure servirà più di una partita in schedina.</p>'+
+      nota();return}
   dentro.sort(function(x,y){return y.prob-x.prob});
   var t='<p class="lede" style="margin:10px 0">'+dentro.length+' esiti pagano almeno '+
     fmt(target)+', dal piu’ probabile:</p><div class="tbl-scroll"><table><thead><tr>'+
     '<th>Esito</th><th>Quota</th><th>Probabilità</th><th></th></tr></thead><tbody>';
   dentro.slice(0,10).forEach(function(c,i){
     t+='<tr'+(i===0?' class="hl"':'')+'><td style="font-size:12px">'+esc(c.nome)+
-      '</td><td class="q">'+fmt(c.price)+(c.stimato?'<span style="color:var(--ink-faint)">~</span>':'')+
+      '</td><td class="q">'+fmt(c.price)+fonteTag(c.fonte)+
       '</td><td>'+pct(c.prob)+'</td><td><button class="btn ghost sm" data-vic="'+i+'">Aggiungi</button></td></tr>'});
-  box.innerHTML=t+'</tbody></table></div>'+
-    '<p class="note">Le quote con <span class="num">~</span> sono stimate: non le hai '+
-    'inserite. Controllale sul bookmaker prima di giocare.</p>';
+  box.innerHTML=t+'</tbody></table></div>'+nota()+
+    (state.soloReali?'<p class="note">Tutte le quote qui sopra vengono da un '+
+      'banco: quelle marcate <b>palinsesto</b> dal fornitore che hai scaricato, '+
+      'quelle marcate <b>tuo</b> da te.</p>':
+      '<p class="note">Le quote con <span class="num">~</span> sono stimate: non le hai '+
+      'inserite e nessun banco le espone. Controllale sul bookmaker prima di giocare.</p>');
   Array.prototype.forEach.call(box.querySelectorAll("[data-vic]"),function(b){
     b.addEventListener("click",function(){
       var c=dentro[+b.getAttribute("data-vic")];
       state.legs.push({nome:c.nome,match:p.id,mkt:c.mkt,sel:c.sel,price:c.price,
-        p:c.prob,book:state.book,quando:p.quando,
-        etichetta:p.casa+" – "+p.ospiti,stimato:c.stimato});
+        p:c.prob,book:c.banco||state.book,quando:p.quando,combo:!!c.combo,
+        etichetta:p.casa+" – "+p.ospiti,stimato:c.stimato,fonte:c.fonte});
       showTab("schedina")})})}
 
 /* Le combo non erano scegliibili: comparivano solo se cadevano per caso nella
@@ -4103,7 +4300,7 @@ function importo(){
   return(el&&parseFloat(el.value))||2}
 
 function renderGen(){
-  renderQuoteScelte();
+  renderQuoteScelte();renderVere();
   var box=document.getElementById("genBox");if(!box)return;
   var scelte=state.scelte.map(trovaPartita).filter(Boolean);
   /* Le gambe seguono le partite scelte: se ne spunti cinque, la schedina
@@ -4138,15 +4335,24 @@ function renderGen(){
     bonusNellIntervallo()+
     '<div class="kv" style="border:0;padding:8px 0 0"><label style="display:flex;'+
     'align-items:center;gap:8px;margin:0;font-size:13px;color:var(--ink)">'+
+    '<input type="checkbox" id="genVere" style="width:18px;height:18px;'+
+    'accent-color:var(--accent)"'+(state.soloReali?" checked":"")+
+    '> <b>solo quote vere</b></label><span></span></div>'+
+    '<p class="note" style="margin-top:6px">Con la spunta entrano in schedina '+
+    'soltanto prezzi che un banco ha davvero esposto: quelli del palinsesto '+
+    'scaricato dal fornitore, e quelli che hai letto tu sul conto e scritto qui. '+
+    'Gli esiti senza prezzo restano fuori dalla ricerca invece di arrivarci con '+
+    'una quota calcolata da noi \u2014 <b>la quota che vedi \u00e8 quella che '+
+    'ti pagano</b>. Togliendola l\u2019app riempie i buchi con la quota equa '+
+    'meno un margine tipico, che il banco non ha mai scritto da nessuna parte.</p>'+
+    '<div class="kv" style="border:0;padding:8px 0 0"><label style="display:flex;'+
+    'align-items:center;gap:8px;margin:0;font-size:13px;color:var(--ink)">'+
     '<input type="checkbox" id="genReali" style="width:18px;height:18px;'+
     'accent-color:var(--accent)"'+(state.genCombo===false?"":" checked")+
     '> considera anche le combo</label><span></span></div>'+
     '<p class="note" style="margin-top:6px">Le combo <b>nessun fornitore di quote '+
-    'le pubblica</b>: il prezzo che vedi qui \u00e8 la quota equa calcolata dalla '+
-    'matrice dei risultati meno un margine tipico, ed \u00e8 segnato con <span '+
-    'class="num">~</span>. \u00c8 una stima nostra, non un prezzo esposto: '+
-    'controllala su '+esc(nomeBook(state.book))+' prima di giocarla. Togli la '+
-    'spunta per restare ai soli prezzi che abbiamo davvero.</p>'+
+    'le pubblica</b>: con "solo quote vere" acceso entrano solo quelle di cui hai '+
+    'scritto tu il prezzo, nella scheda della partita. Sono poche, ma sono vere.</p>'+
     '<div class="row-btn"><button class="btn" id="btnGen">Cerca le pi\u00f9 plausibili</button>'+
     '<button class="btn ghost" id="btnGenClear">Deseleziona tutto</button></div>'+
     '<div id="genEsito"></div>';
@@ -4181,10 +4387,12 @@ function renderGen(){
     if(state.genMin>state.genN)state.genN=state.genMin;
     state.genStake=importo();
     state.genCombo=document.getElementById("genReali").checked;
+    state.soloReali=document.getElementById("genVere").checked;
+    salvaImp();
     state.genTutte=false;
     var t=Date.now();
     state.gen=generaSchedina(scelte,state.genQ,Math.min(10,state.genN),
-      state.genCombo===false,state.genMin);
+      state.soloReali,state.genMin,state.genCombo===false);
     state.genMs=Date.now()-t;
     mostraGen()});
   if(state.gen)mostraGen()}
@@ -4197,10 +4405,14 @@ function mostraGen(){
       fmt(state.genQ||5)+
       ((state.genMin||1)>1?' con almeno '+state.genMin+' gambe. Prova ad '+
         'abbassare il minimo.':'.')+
+      (state.soloReali?' Con <b>solo quote vere</b> acceso la ricerca usa '+
+      'soltanto i prezzi che un banco espone, e su queste partite non bastano. '+
+      'Scarica le quote dalla scheda <b>Partite</b>, oppure scegli altre partite: '+
+      'togliere la spunta farebbe arrivare la schedina a quota, ma con numeri che '+
+      'nessuno ti paga.':
       (state.genCombo===false?' Prova a spuntare '+
-      '"considera anche le combo": aprono molte pi\u00f9 strade, al prezzo di una '+
-      'quota stimata invece che esposta.':' Scegli altre partite, oppure abbassa '+
-      'l\u2019obiettivo.')+
+      '"considera anche le combo": aprono molte pi\u00f9 strade.':
+      ' Scegli altre partite, oppure abbassa l\u2019obiettivo.'))+
       '</div>';return}
   var stake=state.genStake||2;
   /* "Le piu' plausibili": ordinate per probabilita' di incasso, non per numero
@@ -4265,16 +4477,21 @@ function mostraGen(){
       (l.tipo==="combo"?'<br><span class="pill ex">combo</span>':
         (l.banco?'<br><span style="font-size:10px;color:var(--ink-faint)">'+
           esc(l.banco)+'</span>':''))+
-      '</td><td class="q">'+fmt(l.price)+
-      (l.stimato?'<span style="color:var(--ink-faint)">~</span>':'')+
+      '</td><td class="q">'+fmt(l.price)+fonteTag(l.fonte)+
       '</td><td>'+pct(l.prob)+'</td></tr>'});
   t+='</tbody></table></div>';
 
+  /* La schedina con "solo quote vere" non puo' avere gambe stimate: il filtro
+     le tiene fuori dalla ricerca. Se la spunta e' tolta puo' averne, e allora
+     il posto giusto per rimediare non e' un avvertimento ma un campo: scrivi
+     la quota che il banco espone e quella gamba smette di essere una stima,
+     qui e ovunque. */
   if(stim)t+='<div class="warn"><b>'+stim+' quot'+(stim===1?'a stimata':'e stimate')+
-    '</b> (segnate con ~): non le abbiamo da nessun banco, quindi \u00e8 la quota '+
-    'equa meno un margine tipico. Controllale su '+esc(nomeBook(state.book))+
-    ' prima di giocare: se il banco paga meno, la quota finale scende sotto '+
-    'l\u2019obiettivo.</div>';
+    '</b>: non le abbiamo da nessun banco, quindi \u00e8 la quota equa meno un '+
+    'margine tipico. Se '+esc(nomeBook(state.book))+' paga meno, la quota finale '+
+    'scende sotto l\u2019obiettivo. Riaccendi <b>solo quote vere</b> qui sopra '+
+    'per tenerle fuori, oppure metti la schedina in pagina e scrivi i prezzi '+
+    'veri gamba per gamba.</div>';
 
   if(bk.maxVincita&&stake*r.quotaEff>bk.maxVincita)
     t+='<div class="warn"><b>Sopra il tetto di vincita del banco.</b> '+
@@ -4332,7 +4549,7 @@ function mostraGen(){
       return{nome:l.nome,match:l.partita.id,mkt:l.mkt,sel:l.sel,price:l.price,
         p:l.prob,book:l.banco||state.book,quando:l.partita.quando,
         etichetta:l.partita.casa+" \u2013 "+l.partita.ospiti,
-        stimato:l.stimato}});
+        combo:l.tipo==="combo",stimato:l.stimato,fonte:l.fonte}});
     renderSchedina();document.getElementById("legsBox").scrollIntoView({block:"start"})})}
 
 /* Tagliare le gambe alza poco la probabilita': il numero che la comanda e'
@@ -4347,7 +4564,7 @@ function levaObiettivo(stake,probAttuale){
     var t=Math.max(1.5,Math.round(q*k*2)/2);
     if(vis[t])return;vis[t]=1;
     var r=generaSchedina(scelte,t,Math.min(10,state.genN||6),
-      state.genCombo===false,state.genMin||1);
+      state.soloReali,state.genMin||1,state.genCombo===false);
     if(!r||!Object.keys(r).length)return;
     var best=null;
     Object.keys(r).forEach(function(n){if(!best||r[n].prob>r[best].prob)best=n});
@@ -4387,7 +4604,7 @@ function vaiAObiettivo(t){
   state.genTutte=false;
   var t0=Date.now();
   state.gen=generaSchedina(scelte,t,Math.min(10,state.genN||6),
-    state.genCombo===false,state.genMin||1);
+    state.soloReali,state.genMin||1,state.genCombo===false);
   state.genMs=Date.now()-t0;
   mostraGen();renderSchedina();
   var g=document.getElementById("genEsito");
@@ -4501,16 +4718,57 @@ function renderSchedina(){
     document.getElementById(id).hidden=false});
   box.innerHTML=state.legs.map(function(l,i){
     var ev=l.p*l.price-1;
+    /* Una gamba stimata porta con se' il campo per rimediare invece di un
+       avvertimento da leggere e basta: la quota la leggi sul banco mentre
+       ricopi la schedina, ed e' li' che serve poterla scrivere. Da quel
+       momento il prezzo vale ovunque, anche per la prossima ricerca. */
     return'<div class="leg"><div><div class="leg-m">'+esc(l.nome)+'</div>'+
       '<div class="leg-s">'+esc(l.etichetta||'')+' \u00b7 quota <b class="num">'+fmt(l.price)+'</b> da '+esc(l.book||"\u2014")+
-      ' · <span class="num">'+pct(l.p)+'</span> · EV <b class="num">'+sgn(ev)+'</b></div></div>'+
+      fonteTag(l.fonte)+
+      ' · <span class="num">'+pct(l.p)+'</span> · EV <b class="num">'+sgn(ev)+'</b></div>'+
+      (l.stimato?'<div class="leg-s" style="margin-top:5px;display:flex;'+
+        'align-items:center;gap:6px;flex-wrap:wrap">'+
+        '<label for="lgq-'+i+'" style="margin:0;font-size:11px">Quota vera su '+
+        esc(nomeBook(state.book))+'</label>'+
+        '<input type="number" id="lgq-'+i+'" data-vera="'+i+'" step="0.01" '+
+        'min="1.01" inputmode="decimal" placeholder="'+fmt(l.price)+'" '+
+        'style="width:88px;padding:3px 6px;font-size:13px">'+
+        '</div>':'')+
+      '</div>'+
       '<button class="btn ghost sm" data-rm="'+i+'">Togli</button></div>'}).join("");
   Array.prototype.forEach.call(box.querySelectorAll("[data-rm]"),function(b){
     b.addEventListener("click",function(){
       state.legs.splice(+b.getAttribute("data-rm"),1);renderSchedina()})});
+  Array.prototype.forEach.call(box.querySelectorAll("[data-vera]"),function(el){
+    el.addEventListener("change",function(){
+      var i=+el.getAttribute("data-vera"),l=state.legs[i],q=parseFloat(el.value);
+      if(!(q>1))return;
+      l.price=q;l.stimato=false;l.fonte="mano";l.book=nomeBook(state.book);
+      setPrezzoMano(l.match,l.mkt,l.combo?l.mkt:l.sel,q);
+      renderSchedina();renderGen()})});
 
   var s=slipStats(state.legs),stake=importo();
   var neg=state.legs.filter(function(l){return l.p*l.price-1<0}).length,warn="";
+  /* Quante gambe reggono su un prezzo che nessuno espone. E' la prima cosa da
+     dire, prima del valore atteso e prima del bonus: se la quota non e' quella,
+     tutti i numeri sotto sono calcolati su una schedina che non esiste. */
+  var stimate=state.legs.filter(function(l){return l.stimato}).length;
+  if(stimate)warn+='<div class="warn"><b>'+stimate+' gamb'+(stimate===1?'a ha':'e hanno')+
+    ' una quota che nessun banco ci ha dato</b>, quindi \u00e8 la quota equa meno '+
+    'un margine tipico: una congettura nostra. Scrivi qui sopra la quota vera che '+
+    'leggi su '+esc(nomeBook(state.book))+' e tutto il resto si ricalcola sul '+
+    'numero giusto.</div>';
+  else if(state.legs.length){
+    var perFonte={api:0,mano:0,ignota:0};
+    state.legs.forEach(function(l){
+      perFonte[l.fonte==="api"?"api":(l.fonte==="mano"?"mano":"ignota")]++});
+    var voci=[];
+    if(perFonte.api)voci.push(perFonte.api+' dal palinsesto scaricato');
+    if(perFonte.mano)voci.push(perFonte.mano+' scritt'+(perFonte.mano===1?'a':'e')+' da te');
+    if(perFonte.ignota)voci.push(perFonte.ignota+' da prima che l\u2019app tenesse '+
+      'traccia della provenienza');
+    warn+='<div class="verdict pos" style="padding:9px 11px;margin-bottom:10px">'+
+      '<p style="margin:0">Nessuna quota stimata: '+voci.join(", ")+'.</p></div>'}
   if(state.legs.length>1){
     var sing=state.legs.reduce(function(a,l){return a+(stake/state.legs.length)*(l.p*l.price-1)},0);
     if(sing>stake*s.ev)warn+='<div class="warn">Giocate come singole le stesse selezioni '+
@@ -5401,9 +5659,11 @@ function lsGet(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}c
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 function salvaQuote(){lsSet("qv2.quote",state.quote);
   if(db)db.doc("quote/correnti").set({v:state.quote}).catch(function(){})}
+function salvaMano(){lsSet("qv2.mano",state.mano);
+  if(db)db.doc("quote/mano").set({v:state.mano}).catch(function(){})}
 function salvaImp(){var s={weekly:state.weekly,bankroll:state.bankroll,
   margin:state.margin,minLeg:state.minLeg,w:state.w,book:state.book,
-  provider:state.provider,rif:state.rif};
+  provider:state.provider,rif:state.rif,soloReali:state.soloReali};
   lsSet("qv2.imp",s);if(db)db.doc("impostazioni/mie").set(s).catch(function(){})}
 function salvaGiocata(g){lsSet("qv2.log",state.log);
   if(db)db.doc("giocate/"+g.id).set(g).catch(function(){})}
@@ -5585,9 +5845,50 @@ document.getElementById("fWeekly").addEventListener("input",function(){
   var v=parseFloat(this.value);if(v>0){state.weekly=v;salvaImp();renderBudget()}});
 document.getElementById("fBankroll").addEventListener("input",function(){
   var v=parseFloat(this.value);if(v>0){state.bankroll=v;salvaImp()}});
+document.getElementById("fVere").addEventListener("change",function(){
+  state.soloReali=this.checked;salvaImp();
+  renderVere();renderGen();renderSchedina();
+  if(state.aperta)aggiornaCalcoli()});
 document.getElementById("fW").addEventListener("input",function(){
   state.w=(+this.value)/100;etichettaPeso();salvaImp();
   if(state.aperta)aggiornaCalcoli()});
+/* Dire "solo quote vere" senza dire quante ne abbiamo lascia l'impressione che
+   l'app si sia bloccata da sola. Questo conta, sulle partite che hai scelto,
+   quante selezioni hanno un prezzo e da dove viene: e' anche la risposta alla
+   domanda "perche' la ricerca non trova niente". */
+function renderVere(){
+  var box=document.getElementById("vereBox");if(!box)return;
+  var ck=document.getElementById("fVere");
+  if(ck)ck.checked=!!state.soloReali;
+  var scelte=state.scelte.map(trovaPartita).filter(Boolean);
+  if(!scelte.length){
+    box.innerHTML='<p class="note">Spunta qualche partita per vedere quante delle '+
+      'loro selezioni hanno un prezzo vero.</p>';return}
+  var tot=0,api=0,mano=0;
+  scelte.forEach(function(p){
+    candidatiPartita(p).forEach(function(c){
+      tot++;if(c.fonte==="api")api++;else if(c.fonte==="mano")mano++})});
+  if(!tot){box.innerHTML='<p class="note">Di queste partite non sappiamo prezzare '+
+    'nulla: senza le quote 1X2 non parte nemmeno la matrice dei risultati.</p>';return}
+  var veri=api+mano;
+  box.innerHTML='<div class="kv"><span>Selezioni prezzabili</span><span>'+tot+
+    '</span></div>'+
+    '<div class="kv"><span>Dal palinsesto scaricato</span><span>'+api+'</span></div>'+
+    '<div class="kv"><span>Scritte da te</span><span>'+mano+'</span></div>'+
+    '<div class="kv"><span>Senza prezzo di nessun banco</span><span>'+(tot-veri)+
+    '</span></div>'+
+    (veri?'<p class="note">La ricerca con <b>solo quote vere</b> lavora su <b>'+
+      veri+'</b> selezioni, <b class="num">'+(veri/scelte.length).toFixed(1)+
+      '</b> per partita. Le altre sono quasi tutte combo, che nessun fornitore di '+
+      'quote pubblica: quelle restano tue da scrivere a mano, una alla volta, '+
+      'aprendo la partita. Per allargare quelle scaricate c\u2019\u00e8 la '+
+      'spunta <i>chiedi anche doppia chance, Goal/NoGoal, le altre linee e gli '+
+      'handicap</i> in <b>Partite \u2192 Quote automatiche</b>.</p>':
+     '<div class="warn">Nessuna selezione ha un prezzo vero: con <b>solo quote '+
+      'vere</b> acceso la ricerca non pu\u00f2 restituire niente. Scarica le quote '+
+      'da <b>Partite \u2192 Quote automatiche</b>, oppure aprile una partita e '+
+      'scrivi tu i prezzi che leggi sul conto.</div>')}
+
 function etichettaPeso(){
   var w=state.w;
   document.getElementById("wLabel").innerHTML=w===0?
@@ -5606,8 +5907,10 @@ function etichettaPeso(){
     document.getElementById("fBankroll").value=state.bankroll;
     document.getElementById("fMargin").value=String(state.margin);
     document.getElementById("fW").value=Math.round(state.w*100)}
+  if(imp)state.soloReali=imp.soloReali!==false;
   state.log=lsGet("qv2.log",[]);
   state.quote=lsGet("qv2.quote",{});
+  state.mano=lsGet("qv2.mano",{})||{};
   state.extra=lsGet("qv2.extra",[]);
   state.scelte=lsGet("qv2.scelte",[]);
   // La versione va mostrata anche accanto alle quote automatiche: e' li' che
@@ -5619,6 +5922,7 @@ function etichettaPeso(){
     'che la sandbox blocca. L’app vera è su <a href="'+CASA_APP+'" target="_blank" '+
     'rel="noopener" style="color:var(--accent)">giorgioada.github.io/Bookmaking</a>.</div>';
   etichettaPeso();renderAuto();renderBookPicker();renderOccasioni();renderFiltri();renderLista();renderBudget();
+  renderVere();
   var g=new Date(DATI.generato);
   document.getElementById("stamp").textContent="versione "+(DATI.versione||"?")+
     " \u00b7 rating e calendario aggiornati al "+
