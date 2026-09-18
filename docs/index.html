@@ -4543,6 +4543,68 @@ function riassuntoBonus(){
         " · "+g.esito)})}
   return r.join("\n")}
 
+/* Le tabelle dei bonus stanno su siti di comparazione, e ognuno le scrive a
+   modo suo: "5 eventi +5%", "da 5 a 7 | 5,00%", "5\t5". Il vecchio lettore
+   voleva una forma sola, "eventi: percentuale", quindi la tabella andava
+   trascritta a mano una riga alla volta — che e' proprio il lavoro noioso
+   per cui uno copia e incolla.
+
+   Adesso si incolla il blocco com'e'. Il lettore cerca, riga per riga, un
+   numero di eventi e una percentuale; le parole in mezzo le ignora. */
+function leggiTabellaBonus(testo){
+  var anc={},brutte=[],righe=(testo||"").split(/[\n;]+/);
+  /* Le righe che parlano dei parametri — quota minima, tetto, finestra dei
+     giorni — contengono numeri ma non sono scaglioni: "Quota minima 1,25 per
+     evento. Minimo 5 eventi" leggeva 1 come numero di eventi e 5 come
+     percentuale, e inventava uno scaglione che non esiste. Le riconosce dalle
+     parole, e non le conta nemmeno fra quelle ignorate: sono capite altrove. */
+  var PARAM=/quota\s*minima|tetto|massim|vincita|giorni|€|eur\b|minim[oa]\s*\d|almeno/i;
+  righe.forEach(function(r){
+    r=r.trim();
+    if(!r||!/\d/.test(r))return;            // titoli e righe vuote
+    var haPct=r.indexOf("%")>=0;
+    if(!haPct&&PARAM.test(r))return;        // prosa sui parametri
+
+    var ran=r.match(/(?:da\s*)?(\d{1,2})\s*(?:-|a|–|→)\s*(\d{1,2})\b[^%\d]*?([0-9]+(?:[.,][0-9]+)?)\s*%/i);
+    if(ran){
+      var a=+ran[1],b2=+ran[2],v=parseFloat(ran[3].replace(",","."));
+      if(a>0&&b2>=a&&b2<=60){anc[String(a)]=v;anc[String(b2)]=v;return}}
+
+    var tok=r.match(/[0-9]+(?:[.,][0-9]+)?/g)||[];
+    /* Il numero di eventi e' un intero: una cifra con la virgola e' una quota
+       o un importo, mai un conteggio di partite. */
+    var ev=null,iEv=-1;
+    for(var i=0;i<tok.length;i++)
+      if(/^\d{1,2}$/.test(tok[i])&&+tok[i]>0&&+tok[i]<=60){ev=+tok[i];iEv=i;break}
+    if(ev==null){brutte.push(r);return}
+    /* La percentuale, quando il segno c'e', e' quella attaccata al segno:
+       fidarsi della posizione invece che dell'ordine evita di scambiarla con
+       un numero qualunque comparso prima. */
+    var pc=null;
+    var m=r.match(/([0-9]+(?:[.,][0-9]+)?)\s*%/);
+    if(m)pc=parseFloat(m[1].replace(",","."));
+    else if(tok.length>iEv+1)pc=parseFloat(String(tok[iEv+1]).replace(",","."));
+    if(pc==null||!(pc>=0&&pc<=1000)){brutte.push(r);return}
+    anc[String(ev)]=pc});
+  return{ancoraggi:anc,brutte:brutte}}
+
+/* Dallo stesso blocco si ricavano anche i parametri, che di solito stanno
+   scritti a parole sopra o sotto la tabella. Trovarli da soli evita di
+   costringerti a ribattere quattro campi che hai gia' incollato. */
+function leggiParametriBonus(testo){
+  var t=(testo||"").toLowerCase(),out={};
+  var m=t.match(/(?:minim[oa]|almeno|a partire da)\D{0,20}(\d{1,2})\s*(?:event|partit|gamb|selezion)/);
+  if(m)out.gambe_minime=+m[1];
+  m=t.match(/quota\s*minima\D{0,20}([0-9]+[.,][0-9]+)/);
+  if(m)out.quota_minima=parseFloat(m[1].replace(",","."));
+  m=t.match(/(?:entro|oltre)\s*(\d{1,3})\s*giorni/);
+  if(m)out.giorniMax=+m[1];
+  /* Il tetto di vincita e' scritto all'italiana: 50.000 sono cinquantamila,
+     non cinquanta. */
+  m=t.match(/(?:tetto|massim[oa]|fino a)\D{0,25}([0-9]{1,3}(?:[. ][0-9]{3})+|[0-9]{4,})\s*(?:€|eur)/);
+  if(m)out.maxVincita=parseInt(m[1].replace(/[. ]/g,""),10);
+  return out}
+
 function renderRegole(){
   var box=document.getElementById("regoleBox");if(!box)return;
   var bk=bookCorrente(),mio=lsGet("qv2.regole."+state.book,null);
@@ -4568,20 +4630,24 @@ function renderRegole(){
     '<div><label for="rgGG">Eventi entro quanti giorni</label>'+
     '<input type="number" id="rgGG" min="0" step="1" value="'+
       (mio&&mio.giorniMax?mio.giorniMax:"")+'" inputmode="numeric"></div></div>'+
-    '<div style="margin-top:9px"><label for="rgTab">Tabella bonus '+
-    '(una riga per scaglione: <span class="num">eventi: percentuale</span>)</label>'+
+    '<div style="margin-top:9px"><label for="rgTab">Tabella bonus \u2014 '+
+    '<b>incollala com\u2019\u00e8</b>, da dove l\u2019hai trovata</label>'+
     '<textarea id="rgTab" rows="6" style="width:100%;font-family:var(--mono);'+
     'font-size:14px;padding:8px 9px;border:1px solid var(--rule-strong);'+
     'border-radius:3px;background:var(--panel-2);color:var(--ink)" '+
-    'placeholder="5: 4&#10;6: 6&#10;7: 9">'+esc(testo)+'</textarea></div>'+
+    'placeholder="5 eventi&#9;+5%&#10;da 6 a 7 eventi&#9;+7,5%&#10;8 eventi&#9;+10%">'+
+    esc(testo)+'</textarea></div>'+
     '<div class="row-btn"><button class="btn" id="rgSalva">Salva regolamento</button>'+
     (mio?'<button class="btn ghost" id="rgCancella">Torna ai valori supposti</button>':'')+
     '<button class="btn ghost" id="rgCopia">Copia per Claude</button>'+
     '</div><div id="rgEsito"></div>'+
-    '<p class="note">Scrivi <b>tutti</b> gli scaglioni che il regolamento elenca: '+
-    'quelli che mancano vengono interpolati fra i due vicini e restano marcati '+
-    'con <span class="num">~</span>, perché una percentuale inventata da noi non '+
-    'deve somigliare a una letta da te.</p>';
+    '<p class="note">Non serve trascriverla: <b>copia e incolla</b> il blocco '+
+    'com\u2019\u00e8. Riconosco righe tipo <span class="num">5 eventi +5%</span>, '+
+    '<span class="num">da 6 a 8 | 7,5%</span> o <span class="num">5: 4</span>, e '+
+    'dal testo prendo anche eventi minimi, quota minima, tetto e finestra dei '+
+    'giorni se ci sono. Gli scaglioni che mancano vengono interpolati fra i due '+
+    'vicini e restano marcati con <span class="num">~</span>: una percentuale '+
+    'inventata da noi non deve somigliare a una letta da te.</p>';
   var cp=document.getElementById("rgCopia");
   if(cp)cp.addEventListener("click",function(){
     var testo=riassuntoBonus(),e=document.getElementById("rgEsito");
@@ -4599,30 +4665,50 @@ function renderRegole(){
     else manuale()});
   var sv=document.getElementById("rgSalva");
   if(sv)sv.addEventListener("click",function(){
-    var righe=(document.getElementById("rgTab").value||"").split(/[\n,;]+/);
-    var anc={},n=0,brutte=[];
-    righe.forEach(function(r){
-      r=r.trim();if(!r)return;
-      var m=r.match(/^(\d+)\s*[:=\t ]\s*\+?([0-9]+(?:[.,][0-9]+)?)\s*%?$/);
-      if(!m){brutte.push(r);return}
-      anc[String(parseInt(m[1],10))]=parseFloat(m[2].replace(",","."));n++});
-    var e=document.getElementById("rgEsito");
+    var testo=document.getElementById("rgTab").value||"";
+    var letto=leggiTabellaBonus(testo),anc=letto.ancoraggi;
+    var n=Object.keys(anc).length,e=document.getElementById("rgEsito");
     if(!n){e.innerHTML='<div class="warn">Nessuno scaglione riconosciuto. '+
-      'Una riga per scaglione, per esempio <span class="num">5: 4</span>.</div>';return}
+      'Incolla la tabella com’è: mi basta che ogni riga abbia il '+
+      'numero di eventi e la percentuale, per esempio <span class="num">'+
+      '5 eventi +5%</span> oppure <span class="num">5: 4</span>.</div>';return}
+    /* I parametri scritti a parole nel testo incollato riempiono i campi
+       lasciati vuoti, senza scavalcare quelli che hai messo tu a mano. */
+    var par=leggiParametriBonus(testo),presi=[];
+    function campo(id,chiave,intero){
+      var el=document.getElementById(id);
+      if(el&&!el.value&&par[chiave]!=null){
+        el.value=par[chiave];presi.push(chiave)}
+      var v=intero?parseInt(el.value,10):parseFloat(el.value);
+      return isFinite(v)?v:null}
     var g=lsGet("qv2.regole."+state.book,{})||{};
-    g.gambe_minime=parseInt(document.getElementById("rgMin").value,10)||1;
-    g.quota_minima=parseFloat(document.getElementById("rgQ").value)||1.01;
-    g.maxVincita=parseFloat(document.getElementById("rgMax").value)||null;
-    g.giorniMax=parseInt(document.getElementById("rgGG").value,10)||null;
+    g.gambe_minime=campo("rgMin","gambe_minime",true)||1;
+    g.quota_minima=campo("rgQ","quota_minima",false)||1.01;
+    g.maxVincita=campo("rgMax","maxVincita",true);
+    g.giorniMax=campo("rgGG","giorniMax",true);
     g.ancoraggi=anc;
     lsSet("qv2.regole."+state.book,g);
     if(db)db.doc("regole/"+state.book).set(g).catch(function(){});
+    var ks=Object.keys(anc).map(Number).sort(function(a,b){return a-b});
+    /* Un bonus che cala aggiungendo eventi non esiste: se il testo incollato
+       lo dice, quasi sempre due colonne sono finite invertite. Meglio
+       segnalarlo adesso che lasciarti calcolare schedine su una curva storta. */
+    var giu=[];
+    for(var i=1;i<ks.length;i++)
+      if(anc[ks[i]]<anc[ks[i-1]])giu.push(ks[i-1]+"→"+ks[i]);
     renderRegole();renderBonus();renderGen();
-    document.getElementById("rgEsito").innerHTML='<div class="verdict pos">'+
-      '<h3>'+n+' scaglion'+(n===1?'e':'i')+' salvati</h3><p>Da ora i conti di '+
+    document.getElementById("rgEsito").innerHTML='<div class="verdict '+
+      (giu.length?'neg':'pos')+'"><h3>'+n+' scaglion'+(n===1?'e':'i')+
+      ' letti</h3><p>Da <b class="num">'+ks[0]+'</b> a <b class="num">'+
+      ks[ks.length-1]+'</b> eventi. Da ora i conti di '+
       esc(nomeBook(state.book))+' usano il tuo regolamento.'+
-      (brutte.length?' <b>'+brutte.length+' righe non capite</b> e ignorate: '+
-        esc(brutte.slice(0,3).join(" | ")):'')+'</p></div>'});
+      (presi.length?' Dal testo ho preso anche: '+esc(presi.join(", "))+'.':'')+
+      (letto.brutte.length?' <b>'+letto.brutte.length+' righe ignorate</b>: '+
+        esc(letto.brutte.slice(0,2).join(" | ")):'')+
+      (giu.length?'</p><p><b>Attenzione:</b> il bonus cala passando da '+
+        esc(giu.join(", "))+' eventi. Un bonus non cala aggiungendo eventi: '+
+        'controlla che le colonne non siano invertite.':'')+
+      '</p></div>'});
   var cn=document.getElementById("rgCancella");
   if(cn)cn.addEventListener("click",function(){
     lsSet("qv2.regole."+state.book,null);
