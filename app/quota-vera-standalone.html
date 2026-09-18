@@ -1130,6 +1130,10 @@ var state={legs:[],log:[],weekly:30,bankroll:1200,margin:0.04,minLeg:1.25,
      ma il modulo delle quote vuole tutto il mercato completo per accettarli,
      e di una selezione sola la quota la sai, delle altre no. */
   soloReali:true,mano:{},
+  /* esclusi: gli esiti che hai gia' visto proporre e non vuoi. Senza questo,
+     "non mi piacciono" non aveva risposta: la ricerca e' deterministica, e a
+     parita' di quote e partite ridarebbe per sempre la stessa schedina. */
+  esclusi:{},
   /* evt: da quale evento del fornitore viene ogni partita. Lo scarico per
      campionato lo impara e basta; serve a chiedere, partita per partita, i
      mercati che quell'endpoint non espone. */
@@ -1221,6 +1225,45 @@ function candidatiPartita(p){
    Una quota stimata e' una nostra congettura: costruirci sopra una schedina
    produce un numero che sembra solido e non lo e', perche' il banco quella
    quota non l'ha mai esposta. */
+/* Rimettere in gioco un esito scartato deve funzionare anche quando la ricerca
+   non ha restituito niente: e' proprio li' che serve, perche' senza questo il
+   troppo scartare diventa un vicolo cieco senza uscita. */
+function legaEsclusi(e){
+  function rifai(){
+    var sc=state.scelte.map(trovaPartita).filter(Boolean);
+    state.genTutte=false;
+    state.gen=generaSchedina(sc,state.genQ||obiettivo(),Math.min(10,state.genN||6),
+      state.soloReali,state.genMin||1,state.genCombo===false);
+    mostraGen();renderVere()}
+  Array.prototype.forEach.call(e.querySelectorAll("[data-rimetti]"),function(b){
+    b.addEventListener("click",function(){
+      rimettiEsito(b.getAttribute("data-rimetti"));rifai()})});
+  var rt=e.querySelector("#btnRimettiTutti");
+  if(rt)rt.addEventListener("click",function(){
+    state.esclusi={};salvaEsclusi();rifai()})}
+
+/* Gli esiti scartati restano in vista: una lista che si allunga da sola e non
+   si vede da nessuna parte diventa il prossimo mistero, "perche' non mi propone
+   piu' quella partita". */
+function chipEsclusi(){
+  var ks=Object.keys(state.esclusi);
+  if(!ks.length)return"";
+  return'<div class="kv" style="border:0;padding:10px 0 4px"><span><b>'+ks.length+
+    ' esit'+(ks.length===1?'o scartato':'i scartati')+'</b></span><span></span></div>'+
+    '<div class="filters" style="margin-bottom:6px">'+
+    ks.map(function(k){
+      return'<button class="chip" data-rimetti="'+esc(k)+'" title="rimettilo fra '+
+        'quelli possibili">'+esc(state.esclusi[k])+' \u00d7</button>'}).join("")+
+    '</div><div class="row-btn" style="margin-top:0">'+
+    '<button class="btn ghost sm" id="btnRimettiTutti">Rimetti tutti gli esiti '+
+    'scartati</button></div>'}
+
+function chiaveEsito(pid,mkt,sel){return pid+"|"+mkt+"|"+sel}
+function salvaEsclusi(){lsSet("qv2.esclusi",state.esclusi)}
+function escludiEsito(pid,mkt,sel,nome){
+  state.esclusi[chiaveEsito(pid,mkt,sel)]=nome||sel;salvaEsclusi()}
+function rimettiEsito(k){delete state.esclusi[k];salvaEsclusi()}
+
 function generaSchedina(partite,obiettivo,maxGambe,soloReali,minGambe,senzaCombo){
   /* Due filtri distinti, che prima erano uno solo. "Niente combo" e "solo
      prezzi veri" finivano nella stessa casella perche' le combo non le
@@ -1231,6 +1274,7 @@ function generaSchedina(partite,obiettivo,maxGambe,soloReali,minGambe,senzaCombo
       return g.filter(function(c){
         if(soloReali&&c.stimato)return false;
         if(senzaCombo&&c.tipo==="combo")return false;
+        if(state.esclusi[chiaveEsito(c.partita.id,c.mkt,c.sel)])return false;
         return true})})
     .filter(function(g){return g.length});
   if(!gruppi.length)return null;
@@ -2505,6 +2549,7 @@ function renderAuto(){
       '<div class="row-btn"><button class="btn ghost" id="btnExtra">Mercati '+
       'extra sulle partite scelte ('+state.scelte.length+')</button></div>':'')+
     '<div id="autoEsito"></div>'+
+    '<div id="memQuote"></div>'+
     '<p class="note" style="margin-top:8px">Versione <b class="num">'+
     esc(DATI.versione||"?")+'</b>. Se non corrisponde a quella che ti ho detto, '+
     'la pagina \u00e8 in cache: ricarica tenendo premuto il pulsante di ricarica.</p>';
@@ -2525,6 +2570,7 @@ function renderAuto(){
     if(state.provider==="oddspapi")scaricaOddsPapi();else scaricaQuote()});
   var bx=document.getElementById("btnExtra");
   if(bx)bx.addEventListener("click",scaricaExtra);
+  renderMemoriaQuote();
   var vf=document.getElementById("btnVerifica");
   if(vf)vf.addEventListener("click",verificaFornitore);
   var tutti=document.getElementById("btnAutoTutti");
@@ -2915,7 +2961,7 @@ function scaricaOddsPapi(){
           if(ov>1&&un>1)po={Over:+ov,Under:+un};
           if(nome&&(pr||po))nuove+=applicaQuote(t.p,String(nome),pr,po);
           else if(!pr&&!po){nonLetti++;if(!esempio)esempio=bk}})});
-      salvaQuote();renderLista();renderOccasioni();
+      salvaQuote();renderLista();renderOccasioni();renderMemoriaQuote();
       var h="";
       if(nuove)h+='<div class="verdict pos" style="margin-top:10px"><h3>'+nuove+
         ' quote scaricate</h3><p>Su '+agg+' partite agganciate'+
@@ -3256,7 +3302,7 @@ function scaricaExtra(){
       .catch(function(err){
         if(problemi.length<5)problemi.push(pp.casa+" \u2013 "+pp.ospiti+": "+err.message)})})
   },Promise.resolve()).then(function(){
-    salvaQuote();renderLista();renderOccasioni();renderGen();
+    salvaQuote();renderLista();renderOccasioni();renderGen();renderMemoriaQuote();
     var h="";
     if(nuove)h+='<div class="verdict pos" style="margin-top:10px"><h3>'+nuove+
       ' quote extra scaricate</h3><p>Su '+conId.length+' partit'+
@@ -3277,6 +3323,77 @@ function scaricaExtra(){
     if(q)h+='<p class="note">Restano <b class="num">'+esc(q.rimasti)+
       '</b> crediti questo mese.</p>';
     esito.innerHTML=h})}
+
+/* Scaricare aggiunge, non sostituisce. Togliere la spunta a un mercato smette
+   di chiederlo al fornitore, ma quello che avevi gia' scaricato resta dov'e' —
+   nel tuo browser — e la ricerca continua a usarlo. Visto da fuori sembra che
+   l'app "si ricordi" delle scelte vecchie e ignori l'impostazione nuova. Qui si
+   vede cosa c'e' in memoria, mercato per mercato, e si butta via. */
+function contaQuote(){
+  var per={},tot=0,auto=0;
+  Object.keys(state.quote||{}).forEach(function(pid){
+    var q=state.quote[pid];
+    if(!q||Array.isArray(q))return;
+    Object.keys(q).forEach(function(mk){
+      (q[mk]||[]).forEach(function(r){
+        if(!r||!r.prezzi)return;
+        if(!per[mk])per[mk]={n:0,auto:0};
+        per[mk].n++;tot++;
+        if(r.auto){per[mk].auto++;auto++}})})});
+  return{per:per,tot:tot,auto:auto}}
+
+function scordaMercato(mk){
+  Object.keys(state.quote||{}).forEach(function(pid){
+    var q=state.quote[pid];
+    if(q&&!Array.isArray(q)&&q[mk])delete q[mk]});
+  salvaQuote()}
+
+function nomeMercato(mk){
+  var m=mercatoById(mk);
+  if(m)return m.nome;
+  var c=comboById(String(mk).replace(/^combo:/,""));
+  return c?c.nome:mk}
+
+function renderMemoriaQuote(){
+  var box=document.getElementById("memQuote");if(!box)return;
+  var c=contaQuote(),mks=Object.keys(c.per).sort();
+  if(!c.tot){box.innerHTML='<p class="note" style="margin-top:12px">In memoria non '+
+    'c\u2019\u00e8 nessuna quota. Finch\u00e9 resta cos\u00ec, con <b>solo quote '+
+    'vere</b> acceso la ricerca non ha materiale su cui lavorare.</p>';return}
+  box.innerHTML='<div class="kv" style="border:0;padding:14px 0 4px"><span>'+
+    '<b>Quote in memoria</b></span><span>'+c.tot+' righe, '+c.auto+' scaricate</span>'+
+    '</div>'+
+    '<p class="note" style="margin-top:0">Scaricare <b>aggiunge</b>: togliere la '+
+    'spunta a un mercato smette di chiederlo al fornitore, ma quello che avevi '+
+    'gi\u00e0 preso resta qui e la ricerca continua a usarlo. \u00c8 il motivo '+
+    'per cui una schedina rigenerata pu\u00f2 uscire identica. Per farlo sparire '+
+    'davvero, buttalo via da qui.</p>'+
+    '<div class="tbl-scroll"><table><thead><tr><th>Mercato</th><th>Righe</th>'+
+    '<th>Scaricate</th><th></th></tr></thead><tbody>'+
+    mks.map(function(mk){
+      return'<tr><td style="font-size:12px">'+esc(nomeMercato(mk))+'</td><td>'+
+        c.per[mk].n+'</td><td>'+c.per[mk].auto+'</td>'+
+        '<td><button class="btn ghost sm" data-scorda="'+esc(mk)+
+        '">Butta</button></td></tr>'}).join("")+
+    '</tbody></table></div>'+
+    '<div class="row-btn"><button class="btn ghost sm" id="memTutto">Butta tutte '+
+    'le quote in memoria</button></div><div id="memEsito"></div>';
+  Array.prototype.forEach.call(box.querySelectorAll("[data-scorda]"),function(b){
+    b.addEventListener("click",function(){
+      var mk=b.getAttribute("data-scorda");
+      scordaMercato(mk);
+      renderMemoriaQuote();renderLista();renderOccasioni();renderGen();
+      var e=document.getElementById("memEsito");
+      if(e)e.innerHTML='<p class="note">Buttato <b>'+esc(nomeMercato(mk))+
+        '</b>. Da adesso quelle selezioni tornano stime, e con <b>solo quote '+
+        'vere</b> acceso restano fuori dalla ricerca.</p>'})});
+  var t=document.getElementById("memTutto");
+  if(t)t.addEventListener("click",function(){
+    state.quote={};salvaQuote();
+    renderMemoriaQuote();renderLista();renderOccasioni();renderGen();
+    var e=document.getElementById("memEsito");
+    if(e)e.innerHTML='<p class="note">Memoria svuotata. Le quote scritte a mano '+
+      'selezione per selezione restano: quelle stanno in un elenco a parte.</p>'})}
 
 function mercatiRifiutati(msg){
   var m=/markets?\s+not\s+supported[^:]*:\s*([a-z0-9_,\s]+)/i.exec(msg||"");
@@ -3412,7 +3529,7 @@ function scaricaQuote(){
     }).then(function(){
       fatti++;
       if(fatti<divs.length)return;
-      salvaQuote();renderLista();renderOccasioni();
+      salvaQuote();renderLista();renderOccasioni();renderMemoriaQuote();
       var h="";
       var q2=lsGet("qv2.quota.oddsapi",null);
       if(nuoveQuote)h+='<div class="verdict pos" style="margin-top:10px"><h3>'+
@@ -4562,7 +4679,13 @@ function mostraGen(){
       (state.genCombo===false?' Prova a spuntare '+
       '"considera anche le combo": aprono molte pi\u00f9 strade.':
       ' Scegli altre partite, oppure abbassa l\u2019obiettivo.'))+
-      '</div>';return}
+      '</div>'+
+      (Object.keys(state.esclusi).length?'<p class="note">Hai <b>'+
+        Object.keys(state.esclusi).length+' esiti scartati</b>: sono fuori dalla '+
+        'ricerca, e potrebbero essere proprio quelli che servivano per arrivarci.'+
+        '</p>':'')+
+      chipEsclusi();
+    legaEsclusi(e);return}
   var stake=state.genStake||2;
   /* "Le piu' plausibili": ordinate per probabilita' di incasso, non per numero
      di gambe. A parita' di vincita la sola cosa che distingue due schedine e'
@@ -4639,7 +4762,7 @@ function mostraGen(){
       'sulla schedina reale prima di confermare.</div>';
 
   t+='<div class="tbl-scroll" style="margin-top:10px"><table><thead><tr><th>Partita</th>'+
-    '<th>Esito</th><th>Quota</th><th>Prob.</th></tr></thead><tbody>';
+    '<th>Esito</th><th>Quota</th><th>Prob.</th><th></th></tr></thead><tbody>';
   r.gambe.forEach(function(l){
     t+='<tr><td style="font-size:12px">'+esc(l.partita.casa)+'<br>'+esc(l.partita.ospiti)+
       '</td><td style="text-align:left;font-size:12px">'+esc(l.nome)+
@@ -4647,7 +4770,11 @@ function mostraGen(){
         (l.banco?'<br><span style="font-size:10px;color:var(--ink-faint)">'+
           esc(l.banco)+'</span>':''))+
       '</td><td class="q">'+fmt(l.price)+fonteTag(l.fonte)+
-      '</td><td>'+pct(l.prob)+'</td></tr>'});
+      '</td><td>'+pct(l.prob)+'</td>'+
+      '<td><button class="btn ghost sm" data-no="'+
+      esc(chiaveEsito(l.partita.id,l.mkt,l.sel))+'" data-non="'+
+      esc(l.partita.casa+" \u2013 "+l.partita.ospiti+": "+l.nome)+
+      '" title="non voglio questo esito">\u00d7</button></td></tr>'});
   t+='</tbody></table></div>';
 
   /* La schedina con "solo quote vere" non puo' avere gambe stimate: il filtro
@@ -4680,7 +4807,15 @@ function mostraGen(){
       '<b class="num">'+fmt(Math.max(0,qBudget))+' \u20ac</b> dei '+fmt(state.weekly)+
       ' \u20ac che ti sei dato, e ne stai puntando '+fmt(stake)+'.</div>';
 
-  t+='<div class="row-btn"><button class="btn" id="btnGenUse">Metti in schedina</button></div>';
+  t+='<div class="row-btn"><button class="btn" id="btnGenUse">Metti in schedina</button>'+
+    '<button class="btn ghost" id="btnGenAltra">Proponimene un\u2019altra</button>'+
+    '</div>'+
+    '<p class="note">La ricerca non tira a caso: a parit\u00e0 di partite, quote e '+
+    'obiettivo ridarebbe sempre questa, perch\u00e9 \u00e8 la pi\u00f9 probabile '+
+    'che arriva dove hai chiesto. Per averne un\u2019altra bisogna toglierle '+
+    'qualcosa: <b>Proponimene un\u2019altra</b> scarta tutti gli esiti qui sopra, '+
+    'la <b>\u00d7</b> accanto a una riga scarta solo quello.</p>'+
+    chipEsclusi();
 
   t+='<div class="tbl-scroll" style="margin-top:12px"><table><thead><tr><th>Gambe</th>'+
     '<th>Solo gambe</th><th>Bonus</th><th>Quota</th><th>Vincita</th>'+
@@ -4719,6 +4854,28 @@ function mostraGen(){
     'confrontarle a parit\u00e0 guarda la vincita accanto alla probabilit\u00e0.</p>';
   t+=levaObiettivo(stake,r.prob);
   e.innerHTML=t;
+  /* Rifare la ricerca dopo aver scartato qualcosa: stesse partite, stesso
+     obiettivo, un pezzo di scelta in meno. */
+  function rifai(){
+    var sc=state.scelte.map(trovaPartita).filter(Boolean);
+    state.genTutte=false;
+    var t0=Date.now();
+    state.gen=generaSchedina(sc,state.genQ||obiettivo(),Math.min(10,state.genN||6),
+      state.soloReali,state.genMin||1,state.genCombo===false);
+    state.genMs=Date.now()-t0;
+    mostraGen();renderVere()}
+  var alt=document.getElementById("btnGenAltra");
+  if(alt)alt.addEventListener("click",function(){
+    r.gambe.forEach(function(l){
+      escludiEsito(l.partita.id,l.mkt,l.sel,
+        l.partita.casa+" \u2013 "+l.partita.ospiti+": "+l.nome)});
+    rifai()});
+  Array.prototype.forEach.call(e.querySelectorAll("[data-no]"),function(b){
+    b.addEventListener("click",function(){
+      var k=b.getAttribute("data-no").split("|");
+      escludiEsito(k[0],k[1],k.slice(2).join("|"),b.getAttribute("data-non"));
+      rifai()})});
+  legaEsclusi(e);
   Array.prototype.forEach.call(e.querySelectorAll("[data-leva]"),function(tr){
     tr.addEventListener("click",function(){
       vaiAObiettivo(parseFloat(tr.getAttribute("data-leva")))});
@@ -5995,7 +6152,10 @@ document.getElementById("btnNuova").addEventListener("click",function(){
 document.getElementById("fTarget").value=state.genQ||5;
 document.getElementById("fStake").value=state.genStake||2;
 document.getElementById("btnClear").addEventListener("click",function(){
-  state.legs=[];renderSchedina()});
+  /* Anche la proposta, non solo le gambe. Restava in pagina e veniva
+     ridisegnata al primo renderGen(), quindi dopo aver svuotato si rivedeva la
+     stessa schedina di prima e sembrava che l'app non avesse capito. */
+  state.legs=[];state.gen=null;renderSchedina();renderGen()});
 document.getElementById("btnRegister").addEventListener("click",function(){
   if(!state.legs.length)return;
   var s=slipStats(state.legs),stake=importo();
@@ -6113,6 +6273,7 @@ function etichettaPeso(){
   state.quote=lsGet("qv2.quote",{});
   state.mano=lsGet("qv2.mano",{})||{};
   state.evt=lsGet("qv2.evt",{})||{};
+  state.esclusi=lsGet("qv2.esclusi",{})||{};
   state.extra=lsGet("qv2.extra",[]);
   state.scelte=lsGet("qv2.scelte",[]);
   // La versione va mostrata anche accanto alle quote automatiche: e' li' che
